@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DPE Technologies | Secure Login</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #0f2b46, #071a2c);
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 50px 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+            width: 320px;
+            text-align: center;
+            color: white;
+        }
+
+        .brand {
+            font-size: 28px;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        .brand span {
+            font-weight: 300;
+            opacity: 0.8;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 18px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+
+        input:focus {
+            background: rgba(255,255,255,0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            background: #00c6ff;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #0099cc;
+        }
+
+        .error {
+            color: #ff5252;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="login-card">
+
+    <div class="brand">
+        <strong>DPE.</strong> <span>Technologies</span>
+    </div>
+
+    {% if error %}
+        <div class="error">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST">
+        <input type="text" name="email" placeholder="Email Address" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Secure Login</button>
+    </form>
+
+</div>
+
+</body>
+</html>

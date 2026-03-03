@@ -1,0 +1,8 @@
+2026-02-28 21:49:11,841 | ERROR | Connection failed attempt 0: b'[AUTHENTICATIONFAILED] Authentication failed.'
+2026-02-28 21:49:21,280 | ERROR | Connection failed attempt 1: b'[AUTHENTICATIONFAILED] Authentication failed.'
+2026-02-28 21:49:31,998 | ERROR | Connection failed attempt 2: b'[AUTHENTICATIONFAILED] Authentication failed.'
+2026-02-28 21:52:37,957 | INFO | Connected to mailbox
+2026-02-28 21:52:38,151 | INFO | Found 0 emails
+2026-02-28 21:53:45,962 | INFO | Connected to mailbox
+2026-02-28 21:53:46,318 | INFO | Found 1 emails
+2026-02-28 21:54:04,512 | WARNING | Untrusted vendor

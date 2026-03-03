@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DPE Technologies | Documents</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="navbar">
+    <img src="{{ url_for('static', filename='logo.jpg') }}" class="logo-small">
+</header>
+
+<section class="documents">
+
+    <h2>{{ title }}</h2>
+
+    {% if files %}
+        <ul>
+        {% for file in files %}
+            <li>
+                <a href="/view/{{ folder }}/{{ file }}" target="_blank">
+                    {{ file }}
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No documents found.</p>
+    {% endif %}
+
+    <a href="/" class="back-btn">← Back to Dashboard</a>
+
+</section>
+
+</body>
+</html>

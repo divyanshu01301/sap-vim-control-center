@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DPE Technologies | Control Center</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f2b46, #071a2c);
+            color: white;
+        }
+
+        .header {
+            padding: 25px;
+            text-align: center;
+            font-size: 22px;
+            background: rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+
+        .container {
+            width: 85%;
+            margin: 40px auto;
+        }
+
+        .success {
+            margin: 15px 0;
+            padding: 12px;
+            background: linear-gradient(90deg, #00c853, #00e676);
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 12px 22px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .btn-primary { background: #00c6ff; color: white; }
+        .btn-danger { background: #ff3c5f; color: white; }
+        .btn-folder { background: #00f5a0; color: black; }
+
+        .cards {
+            display: flex;
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .card {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(8px);
+            text-align: center;
+        }
+
+        .card h3 {
+            margin-bottom: 10px;
+            font-weight: 400;
+        }
+
+        .card p {
+            font-size: 34px;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        #logs {
+            height: 250px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            background: #051421;
+            padding: 15px;
+            border-radius: 8px;
+            color: #00f5a0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    DPE. Technologies – SAP VIM Live Control Center
+</div>
+
+<div class="container">
+
+    <h3>Welcome {{ user }}</h3>
+
+    {% if message %}
+        <div class="success">{{ message }}</div>
+    {% endif %}
+
+    <br>
+
+    <a href="/start">
+        <button class="btn btn-primary">Start Email Processing</button>
+    </a>
+
+    <a href="/incoming">
+        <button class="btn btn-folder">
+            Incoming ({{ incoming_count }})
+        </button>
+    </a>
+
+    <a href="/rejected">
+        <button class="btn btn-danger">
+            Rejected ({{ rejected_count }})
+        </button>
+    </a>
+
+    <a href="/logout">
+        <button class="btn btn-danger">Logout</button>
+    </a>
+
+    <!-- Stats Cards -->
+    <div class="cards">
+        <div class="card">
+            <h3>Incoming Documents</h3>
+            <p>{{ incoming_count }}</p>
+        </div>
+
+        <div class="card">
+            <h3>Rejected Documents</h3>
+            <p>{{ rejected_count }}</p>
+        </div>
+    </div>
+
+    <!-- Graph + Logs -->
+    <div class="grid">
+
+        <div class="panel">
+            <h3>Processing Trend</h3>
+            <canvas id="trendChart"></canvas>
+        </div>
+
+        <div class="panel">
+            <h3>Live System Logs</h3>
+            <div id="logs"></div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    // Trendy Spike Chart
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+            datasets: [{
+                label: 'Processing Volume',
+                data: [5, 8, 6, 12, 7, 9, 4],
+                borderColor: '#00f5a0',
+                backgroundColor: 'rgba(0,245,160,0.2)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointBackgroundColor: '#00f5a0'
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { labels: { color: 'white' } }
+            },
+            scales: {
+                x: { ticks: { color: 'white' } },
+                y: { ticks: { color: 'white' } }
+            }
+        }
+    });
+
+    // Live Logs Auto Refresh
+    function updateLogs() {
+        fetch("/api/logs")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("logs").innerHTML =
+                    data.logs.join("<br>");
+            });
+    }
+
+    updateLogs();
+    setInterval(updateLogs, 3000);
+</script>
+
+</body>
+</html>

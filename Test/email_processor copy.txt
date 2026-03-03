@@ -1,0 +1,178 @@
+# ============================================================
+# SAP VIM Email Pre-Processor (IMAP Version)
+# Reads emails, extracts PDF attachments, classifies, routes
+# ============================================================
+
+import imaplib
+import email
+import os
+import pdfplumber
+import logging
+from datetime import datetime
+
+# ============================================================
+# CONFIGURATION (CHANGE PASSWORD ONLY)
+# ============================================================
+
+EMAIL = "divyanshu.purohit@dpe-technologies.com"
+PASSWORD = "Summer2024*"   # <-- PUT YOUR EMAIL PASSWORD HERE
+
+IMAP_SERVER = "imap.one.com"
+IMAP_PORT = 993
+
+BASE_FOLDER = r"C:\VIM_AUTOMATION"
+
+INCOMING_FOLDER = os.path.join(BASE_FOLDER, "incoming")
+PROCESSED_FOLDER = os.path.join(BASE_FOLDER, "processed")
+REJECTED_FOLDER = os.path.join(BASE_FOLDER, "rejected")
+LOG_FOLDER = os.path.join(BASE_FOLDER, "logs")
+
+LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
+
+# ============================================================
+# CREATE FOLDERS IF NOT EXIST
+# ============================================================
+
+os.makedirs(INCOMING_FOLDER, exist_ok=True)
+os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+os.makedirs(REJECTED_FOLDER, exist_ok=True)
+os.makedirs(LOG_FOLDER, exist_ok=True)
+
+# ============================================================
+# SETUP LOGGING
+# ============================================================
+
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+print("Starting SAP VIM Email Processor...")
+
+# ============================================================
+# CONNECT TO MAILBOX
+# ============================================================
+
+try:
+    mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
+    mail.login(EMAIL, PASSWORD)
+    mail.select("INBOX")
+
+    print("Connected to mailbox successfully.")
+    logging.info("Connected to mailbox successfully")
+
+except Exception as e:
+    print("ERROR: Mailbox connection failed")
+    logging.error(f"Mailbox connection failed: {str(e)}")
+    exit()
+
+# ============================================================
+# SEARCH UNREAD EMAILS
+# ============================================================
+
+status, messages = mail.search(None, 'UNSEEN')
+
+email_ids = messages[0].split()
+
+print(f"Found {len(email_ids)} unread emails")
+logging.info(f"Found {len(email_ids)} unread emails")
+
+# ============================================================
+# PROCESS EMAILS
+# ============================================================
+
+for email_id in email_ids:
+
+    try:
+
+        status, msg_data = mail.fetch(email_id, "(RFC822)")
+
+        raw_email = msg_data[0][1]
+
+        msg = email.message_from_bytes(raw_email)
+
+        subject = msg.get("Subject", "")
+        sender = msg.get("From", "")
+
+        print(f"\nProcessing email from: {sender}")
+        logging.info(f"Processing email from: {sender}, Subject: {subject}")
+
+        # ====================================================
+        # CHECK ATTACHMENTS
+        # ====================================================
+
+        for part in msg.walk():
+
+            filename = part.get_filename()
+
+            if filename and filename.lower().endswith(".pdf"):
+
+                print(f"Found PDF attachment: {filename}")
+                logging.info(f"Found PDF attachment: {filename}")
+
+                processed_path = os.path.join(PROCESSED_FOLDER, filename)
+
+                # Save file
+                with open(processed_path, "wb") as f:
+                    f.write(part.get_payload(decode=True))
+
+                logging.info(f"Saved to processed folder: {filename}")
+
+                # ====================================================
+                # EXTRACT TEXT FROM PDF
+                # ====================================================
+
+                pdf_text = ""
+
+                try:
+                    with pdfplumber.open(processed_path) as pdf:
+
+                        for page in pdf.pages:
+                            text = page.extract_text()
+
+                            if text:
+                                pdf_text += text
+
+                except Exception as e:
+                    logging.error(f"PDF read error: {filename}")
+
+                # ====================================================
+                # CLASSIFICATION RULE (FIXED VERSION)
+                # Checks BOTH filename AND PDF content
+                # ====================================================
+
+                if ("invoice" in pdf_text.lower()) or ("invoice" in filename.lower()):
+
+                    destination = os.path.join(INCOMING_FOLDER, filename)
+
+                    os.rename(processed_path, destination)
+
+                    print(f"Moved to INCOMING: {filename}")
+                    logging.info(f"Moved to INCOMING: {filename}")
+
+                else:
+
+                    destination = os.path.join(REJECTED_FOLDER, filename)
+
+                    os.rename(processed_path, destination)
+
+                    print(f"Moved to REJECTED: {filename}")
+                    logging.info(f"Moved to REJECTED: {filename}")
+
+        # Mark email as read
+        mail.store(email_id, '+FLAGS', '\\Seen')
+
+    except Exception as e:
+
+        print("Error processing email:", str(e))
+        logging.error(f"Error processing email: {str(e)}")
+
+# ============================================================
+# CLOSE CONNECTION
+# ============================================================
+
+mail.logout()
+
+print("\nProcessing complete.")
+logging.info("Processing complete")

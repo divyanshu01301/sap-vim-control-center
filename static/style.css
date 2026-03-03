@@ -1,0 +1,130 @@
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top left, #0f2b46, #071a2c 70%);
+    color: #ffffff;
+}
+
+.navbar {
+    text-align: center;
+    padding: 25px;
+    background: #0b2238;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.logo {
+    width: 200px;
+}
+
+.logo-small {
+    width: 160px;
+}
+
+.container {
+    width: 85%;
+    margin: auto;
+}
+
+.dashboard {
+    display: flex;
+    gap: 30px;
+    margin-top: 60px;
+}
+
+.card {
+    flex: 1;
+    padding: 35px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(8px);
+    text-align: center;
+    transition: 0.3s;
+    text-decoration: none;
+    color: white;
+}
+
+.card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(0,255,255,0.2);
+}
+
+.card p {
+    font-size: 42px;
+    font-weight: bold;
+}
+
+.incoming { border-left: 4px solid #00f5a0; }
+.rejected { border-left: 4px solid #ff3c5f; }
+.activity { border-left: 4px solid #00c6ff; }
+
+.analytics-section {
+    margin-top: 80px;
+    padding: 30px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.04);
+}
+
+.analytics-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.logs-section {
+    margin-top: 60px;
+}
+
+#logs-box {
+    background: #051421;
+    border-radius: 10px;
+    padding: 20px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    color: #00f5a0;
+}
+
+.documents {
+    width: 80%;
+    margin: 60px auto;
+}
+
+.documents ul {
+    list-style: none;
+    padding: 0;
+}
+
+.documents li {
+    background: rgba(255,255,255,0.07);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.documents a {
+    color: #00c3ff;
+    text-decoration: none;
+}
+
+.back-btn {
+    display: inline-block;
+    margin-top: 25px;
+    padding: 10px 22px;
+    background: #00aaff;
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+}
+
+.footer {
+    margin-top: 70px;
+    padding: 25px;
+    text-align: center;
+    background: #06121c;
+}
+
+.linkedin-icon {
+    width: 24px;
+    margin-left: 15px;
+    vertical-align: middle;
+}
