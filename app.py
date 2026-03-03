@@ -1,20 +1,21 @@
 # ============================================================
-# DPE Technologies – SAP VIM Control Center (Cloud Version)
-# Render Compatible – No Windows Paths
+# DPE Technologies – SAP VIM Control Center (Cloud Secure)
+# Same functionality – Improved security
 # ============================================================
 
 from flask import Flask, render_template, request, redirect, session, jsonify, send_from_directory
+from functools import wraps
 import os
 import math
+import imaplib
 from datetime import datetime
 import vim_email_processor
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
-
 # ============================================================
-# CLOUD BASE CONFIG (IMPORTANT FIX)
+# CLOUD BASE CONFIG
 # ============================================================
 
 BASE_FOLDER = os.path.join(os.getcwd(), "data")
@@ -26,13 +27,25 @@ LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
 
 ITEMS_PER_PAGE = 5
 
-# Create folders automatically (cloud safe)
 for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
 
 # ============================================================
-# LOGIN
+# LOGIN REQUIRED DECORATOR
+# ============================================================
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if "email" not in session:
+            return redirect("/")
+        return f(*args, **kwargs)
+    return wrapper
+
+
+# ============================================================
+# LOGIN (WITH IMAP VALIDATION)
 # ============================================================
 
 @app.route("/", methods=["GET", "POST"])
@@ -45,8 +58,16 @@ def login():
         if not email or not password:
             return render_template("login.html", error="Enter credentials")
 
+        # Validate IMAP login before allowing dashboard
+        try:
+            mail = imaplib.IMAP4_SSL(os.environ.get("IMAP_SERVER", "imap.one.com"), 993)
+            mail.login(email, password)
+            mail.logout()
+        except:
+            return render_template("login.html", error="Invalid email or password")
+
         session["email"] = email
-        session["password"] = password
+        session["password"] = password  # temporary only
 
         return redirect("/dashboard")
 
@@ -58,10 +79,8 @@ def login():
 # ============================================================
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
-
-    if "email" not in session:
-        return redirect("/")
 
     message = session.pop("message", None)
 
@@ -82,10 +101,8 @@ def dashboard():
 # ============================================================
 
 @app.route("/start")
+@login_required
 def start_processing():
-
-    if "email" not in session:
-        return redirect("/")
 
     try:
         result = vim_email_processor.run_processor(
@@ -98,6 +115,9 @@ def start_processing():
 
         session["message"] = result
 
+        # Remove password after use (important)
+        session.pop("password", None)
+
     except Exception as e:
         session["message"] = f"Error: {str(e)}"
 
@@ -109,6 +129,7 @@ def start_processing():
 # ============================================================
 
 @app.route("/api/logs")
+@login_required
 def get_logs():
 
     if not os.path.exists(LOG_FILE):
@@ -157,10 +178,8 @@ def get_folder_data(folder_path, page):
 # ============================================================
 
 @app.route("/incoming")
+@login_required
 def view_incoming():
-
-    if "email" not in session:
-        return redirect("/")
 
     page = int(request.args.get("page", 1))
 
@@ -182,10 +201,8 @@ def view_incoming():
 # ============================================================
 
 @app.route("/rejected")
+@login_required
 def view_rejected():
-
-    if "email" not in session:
-        return redirect("/")
 
     page = int(request.args.get("page", 1))
 
@@ -207,14 +224,20 @@ def view_rejected():
 # ============================================================
 
 @app.route("/file/<folder>/<filename>")
+@login_required
 def open_file(folder, filename):
+
+    if ".." in filename:
+        return "Invalid filename", 400
 
     if folder == "incoming":
         directory = INCOMING_FOLDER
-    else:
+    elif folder == "rejected":
         directory = REJECTED_FOLDER
+    else:
+        return "Invalid folder", 400
 
-    return send_from_directory(directory, filename)
+    return send_from_directory(directory, filename, as_attachment=True)
 
 
 # ============================================================
@@ -222,14 +245,11 @@ def open_file(folder, filename):
 # ============================================================
 
 @app.route("/logout")
+@login_required
 def logout():
     session.clear()
     return redirect("/")
 
 
-# ============================================================
-# RUN SERVER (LOCAL ONLY)
-# ============================================================
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
