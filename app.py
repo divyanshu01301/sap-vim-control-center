@@ -1,6 +1,6 @@
 # ============================================================
-# DPE Technologies – SAP VIM Control Center (Full Version)
-# Login + Dashboard + Live Logs + Folder Viewer
+# DPE Technologies – SAP VIM Control Center (Cloud Version)
+# Render Compatible – No Windows Paths
 # ============================================================
 
 from flask import Flask, render_template, request, redirect, session, jsonify, send_from_directory
@@ -10,18 +10,25 @@ from datetime import datetime
 import vim_email_processor
 
 app = Flask(__name__)
-app.secret_key = os.urandom(32)
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
+
 
 # ============================================================
-# BASE CONFIG
+# CLOUD BASE CONFIG (IMPORTANT FIX)
 # ============================================================
 
-BASE_FOLDER = r"C:\VIM_AUTOMATION"
+BASE_FOLDER = os.path.join(os.getcwd(), "data")
+
 INCOMING_FOLDER = os.path.join(BASE_FOLDER, "incoming")
 REJECTED_FOLDER = os.path.join(BASE_FOLDER, "rejected")
-LOG_FILE = os.path.join(BASE_FOLDER, "logs", "vim_log.log")
+LOG_FOLDER = os.path.join(BASE_FOLDER, "logs")
+LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
 
 ITEMS_PER_PAGE = 5
+
+# Create folders automatically (cloud safe)
+for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
+    os.makedirs(folder, exist_ok=True)
 
 
 # ============================================================
@@ -83,8 +90,12 @@ def start_processing():
     try:
         result = vim_email_processor.run_processor(
             session["email"],
-            session["password"]
+            session["password"],
+            INCOMING_FOLDER,
+            REJECTED_FOLDER,
+            LOG_FILE
         )
+
         session["message"] = result
 
     except Exception as e:
@@ -110,7 +121,7 @@ def get_logs():
 
 
 # ============================================================
-# FOLDER DATA HELPER
+# FOLDER HELPER
 # ============================================================
 
 def get_folder_data(folder_path, page):
@@ -130,7 +141,6 @@ def get_folder_data(folder_path, page):
                 "modified_raw": os.path.getmtime(full_path)
             })
 
-    # Sort latest first
     files.sort(key=lambda x: x["modified_raw"], reverse=True)
 
     total_files = len(files)
@@ -139,9 +149,7 @@ def get_folder_data(folder_path, page):
     start = (page - 1) * ITEMS_PER_PAGE
     end = start + ITEMS_PER_PAGE
 
-    paginated_files = files[start:end]
-
-    return paginated_files, total_pages, total_files
+    return files[start:end], total_pages, total_files
 
 
 # ============================================================
@@ -195,7 +203,7 @@ def view_rejected():
 
 
 # ============================================================
-# OPEN / DOWNLOAD FILE
+# DOWNLOAD FILE
 # ============================================================
 
 @app.route("/file/<folder>/<filename>")
@@ -220,8 +228,8 @@ def logout():
 
 
 # ============================================================
-# RUN SERVER
+# RUN SERVER (LOCAL ONLY)
 # ============================================================
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
