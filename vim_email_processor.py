@@ -1,6 +1,6 @@
 # ============================================================
 # SAP VIM Email Processor – Cloud Production Version
-# Render Compatible + Dynamic Credentials
+# Clean Filenames + No UUID Garbage Names
 # ============================================================
 
 import imaplib
@@ -8,7 +8,6 @@ import email
 import os
 import pdfplumber
 import logging
-import uuid
 from datetime import datetime
 
 # ============================================================
@@ -25,12 +24,12 @@ IMAP_PORT = 993
 
 def run_processor(email_user, email_pass, incoming_folder, rejected_folder, log_file):
 
-    # Ensure folders exist (important in cloud)
+    # Ensure folders exist
     os.makedirs(incoming_folder, exist_ok=True)
     os.makedirs(rejected_folder, exist_ok=True)
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
-    # Setup logging (cloud safe)
+    # Setup logging
     logging.basicConfig(
         filename=log_file,
         level=logging.INFO,
@@ -45,7 +44,7 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder, log_
         mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
         mail.login(email_user, email_pass)
         mail.select("INBOX")
-        logging.info("Mailbox connected successfully")
+        logging.info("Mailbox connected")
 
     except Exception as e:
         logging.error("Login failed: " + str(e))
@@ -81,18 +80,39 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder, log_
 
                     if filename and filename.lower().endswith(".pdf"):
 
-                        # Prevent duplicate filenames
-                        unique_name = f"{uuid.uuid4()}_{filename}"
-                        temp_path = os.path.join(incoming_folder, unique_name)
+                        # ============================================
+                        # CLEAN FILENAME
+                        # ============================================
 
+                        clean_name = (
+                            filename.replace(" ", "_")
+                                    .replace("(", "")
+                                    .replace(")", "")
+                        )
+
+                        final_name = clean_name
+                        counter = 1
+
+                        # Prevent duplicate files
+                        while os.path.exists(os.path.join(incoming_folder, final_name)) or \
+                              os.path.exists(os.path.join(rejected_folder, final_name)):
+
+                            name, ext = os.path.splitext(clean_name)
+                            final_name = f"{name}_{counter}{ext}"
+                            counter += 1
+
+                        temp_path = os.path.join(incoming_folder, final_name)
+
+                        # Save PDF
                         with open(temp_path, "wb") as f:
                             f.write(part.get_payload(decode=True))
 
-                        logging.info(f"Saved attachment: {unique_name}")
+                        logging.info(f"Saved attachment: {final_name}")
 
-                        # ===============================
-                        # Extract PDF text
-                        # ===============================
+                        # ============================================
+                        # EXTRACT TEXT
+                        # ============================================
+
                         pdf_text = ""
 
                         try:
@@ -105,9 +125,10 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder, log_
                         except Exception as e:
                             logging.error("PDF read error: " + str(e))
 
-                        # ===============================
-                        # Classification Logic
-                        # ===============================
+                        # ============================================
+                        # CLASSIFICATION
+                        # ============================================
+
                         if "invoice" in pdf_text.lower():
                             classification = "INCOMING"
                             destination_folder = incoming_folder
@@ -115,11 +136,11 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder, log_
                             classification = "REJECTED"
                             destination_folder = rejected_folder
 
-                        final_path = os.path.join(destination_folder, unique_name)
+                        final_path = os.path.join(destination_folder, final_name)
 
                         os.rename(temp_path, final_path)
 
-                        logging.info(f"{unique_name} moved to {classification}")
+                        logging.info(f"{final_name} moved to {classification}")
 
             # Mark email as read
             mail.store(email_id, '+FLAGS', '\\Seen')
