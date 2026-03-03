@@ -1,10 +1,11 @@
 # ============================================================
-# DPE Technologies – SAP VIM Control Center (Cloud Secure)
-# Same functionality – Improved security
+# DPE Technologies – SAP VIM Control Center
+# Cloud Version – Preview + Download Supported
 # ============================================================
 
 from flask import Flask, render_template, request, redirect, session, jsonify, send_from_directory
 from functools import wraps
+from werkzeug.utils import secure_filename
 import os
 import math
 import imaplib
@@ -27,6 +28,7 @@ LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
 
 ITEMS_PER_PAGE = 5
 
+# Create folders automatically (cloud safe)
 for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
@@ -67,7 +69,7 @@ def login():
             return render_template("login.html", error="Invalid email or password")
 
         session["email"] = email
-        session["password"] = password  # temporary only
+        session["password"] = password
 
         return redirect("/dashboard")
 
@@ -220,15 +222,34 @@ def view_rejected():
 
 
 # ============================================================
-# DOWNLOAD FILE
+# PREVIEW FILE (INLINE)
 # ============================================================
 
 @app.route("/file/<folder>/<filename>")
 @login_required
-def open_file(folder, filename):
+def preview_file(folder, filename):
 
-    if ".." in filename:
-        return "Invalid filename", 400
+    filename = secure_filename(filename)
+
+    if folder == "incoming":
+        directory = INCOMING_FOLDER
+    elif folder == "rejected":
+        directory = REJECTED_FOLDER
+    else:
+        return "Invalid folder", 400
+
+    return send_from_directory(directory, filename)
+
+
+# ============================================================
+# DOWNLOAD FILE (FORCED)
+# ============================================================
+
+@app.route("/download/<folder>/<filename>")
+@login_required
+def download_file(folder, filename):
+
+    filename = secure_filename(filename)
 
     if folder == "incoming":
         directory = INCOMING_FOLDER
@@ -250,6 +271,10 @@ def logout():
     session.clear()
     return redirect("/")
 
+
+# ============================================================
+# RUN SERVER (LOCAL ONLY)
+# ============================================================
 
 if __name__ == "__main__":
     app.run(debug=False)
