@@ -1,13 +1,13 @@
 # ============================================================
 # SAP VIM Email Processor
-# Email / PDF → PDF/A + Invoice Classification
+# Date Range + PDF Classification
 # ============================================================
 
 import imaplib
 import email
 import os
 import pdfplumber
-from datetime import datetime
+from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from email.utils import parsedate_to_datetime
@@ -68,8 +68,13 @@ def run_processor(
 
     processed = 0
 
-    start_date = datetime.strptime(start_date,"%Y-%m-%d")
-    end_date = datetime.strptime(end_date,"%Y-%m-%d")
+    start = datetime.strptime(start_date,"%Y-%m-%d")
+
+    end = datetime.strptime(end_date,"%Y-%m-%d") + timedelta(days=1)
+
+    start_imap = start.strftime("%d-%b-%Y")
+    end_imap = end.strftime("%d-%b-%Y")
+
 
     mail = imaplib.IMAP4_SSL(IMAP_SERVER,IMAP_PORT)
 
@@ -77,9 +82,15 @@ def run_processor(
 
     mail.select("INBOX")
 
-    status,data = mail.search(None,"ALL")
+
+    # ========================================
+    # IMAP DATE FILTER
+    # ========================================
+
+    status,data = mail.search(None, f'(SINCE "{start_imap}" BEFORE "{end_imap}")')
 
     email_ids = data[0].split()
+
 
     for eid in email_ids:
 
@@ -90,34 +101,15 @@ def run_processor(
         msg = email.message_from_bytes(raw_email)
 
 
-        # =========================
-        # DATE FILTER
-        # =========================
-
-        try:
-
-            email_date = parsedate_to_datetime(msg.get("Date"))
-
-        except:
-
-            continue
-
-        email_date = email_date.replace(tzinfo=None)
-
-        if not (start_date <= email_date <= end_date):
-            continue
-
-
         subject = msg.get("Subject","")
         sender = msg.get("From","")
-
 
         pdf_found = False
 
 
-        # =========================
+        # ====================================
         # ATTACHMENT PROCESSING
-        # =========================
+        # ====================================
 
         if msg.is_multipart():
 
@@ -154,10 +146,6 @@ def run_processor(
                         text = ""
 
 
-                    # =========================
-                    # CLASSIFICATION
-                    # =========================
-
                     if "invoice" in text.lower() or "inv" in text.lower():
 
                         final_path = os.path.join(incoming_folder,filename)
@@ -170,9 +158,10 @@ def run_processor(
                     os.rename(temp_path,final_path)
 
 
-        # =========================
-        # NO PDF → CREATE PDF
-        # =========================
+
+        # ====================================
+        # NO PDF → CREATE PDF FROM EMAIL
+        # ====================================
 
         if not pdf_found:
 
@@ -195,8 +184,6 @@ def run_processor(
 From: {sender}
 
 Subject: {subject}
-
-Date: {email_date}
 
 Body:
 
@@ -229,6 +216,5 @@ Body:
 
 
     mail.logout()
-
 
     return f"{processed} emails processed successfully."

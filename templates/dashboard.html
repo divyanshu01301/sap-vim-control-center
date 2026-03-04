@@ -2,68 +2,39 @@
 <html>
 <head>
 
-<title>DPE SAP VIM Control Center</title>
+<title>SAP VIM Control Center</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <style>
 
 body{
-font-family:'Outfit',sans-serif;
-background:#04080f;
+font-family:Segoe UI;
+background:linear-gradient(135deg,#0f2b46,#071a2c);
 color:white;
 margin:0;
-padding:50px;
+padding:40px;
 }
 
-.header{
+.top{
 display:flex;
 justify-content:space-between;
 align-items:center;
-margin-bottom:40px;
 }
 
-.title{
-font-size:26px;
-font-weight:700;
-}
-
-.logout{
-background:#ef4444;
-border:none;
+button{
 padding:10px 18px;
-border-radius:8px;
-color:white;
-cursor:pointer;
-}
-
-.panel{
-background:#0c1525;
-border:1px solid #1e3358;
-padding:25px;
-border-radius:14px;
-margin-bottom:30px;
-}
-
-.date-input{
-padding:10px;
-border-radius:8px;
-border:1px solid #1e3358;
-background:#091220;
-color:white;
-margin-right:10px;
-}
-
-.process-btn{
-background:linear-gradient(135deg,#0ea5e9,#0284c7);
 border:none;
-padding:10px 20px;
-border-radius:8px;
-color:white;
+border-radius:6px;
 cursor:pointer;
 }
+
+.primary{background:#00c6ff;color:white;}
+.green{background:#00f5a0;color:black;}
+.red{background:#ff3c5f;color:white;}
 
 .cards{
 display:flex;
@@ -73,35 +44,26 @@ margin-top:30px;
 
 .card{
 flex:1;
-background:#0c1525;
-border:1px solid #1e3358;
-padding:30px;
-border-radius:14px;
+background:rgba(255,255,255,0.05);
+padding:25px;
+border-radius:12px;
 text-align:center;
 }
 
 .card h2{
-font-size:42px;
+font-size:38px;
 margin:0;
 }
 
-.card button{
-margin-top:15px;
-padding:8px 14px;
-border:none;
-border-radius:8px;
-cursor:pointer;
+.panel{
+margin-top:40px;
 }
 
-.green{background:#10b981;color:white}
-.red{background:#ef4444;color:white}
-
-.chart-panel{
-margin-top:40px;
-background:#0c1525;
-padding:25px;
-border-radius:14px;
-border:1px solid #1e3358;
+.date{
+padding:10px;
+border-radius:6px;
+border:none;
+margin-right:10px;
 }
 
 </style>
@@ -110,85 +72,84 @@ border:1px solid #1e3358;
 
 <body>
 
-<div class="header">
+<div class="top">
 
-<div class="title">SAP VIM Control Center</div>
+<h2>Welcome {{ user }}</h2>
 
 <a href="/logout">
-<button class="logout">Logout</button>
+<button class="red">Logout</button>
 </a>
 
 </div>
 
 {% if message %}
-<div style="margin-bottom:20px;color:#10b981">{{ message }}</div>
+<p style="color:#00f5a0">{{ message }}</p>
 {% endif %}
-
-<div class="panel">
 
 <form action="/process" method="POST">
 
-<label>From</label>
-<input type="date" name="start_date" class="date-input" required>
+<input type="text" id="start_date" name="start_date" class="date" placeholder="Start date" required>
 
-<label>To</label>
-<input type="date" name="end_date" class="date-input" required>
+<input type="text" id="end_date" name="end_date" class="date" placeholder="End date" required>
 
-<button class="process-btn">Start Email Processing</button>
+<button class="primary">Start Processing</button>
 
 </form>
 
-</div>
 
 <div class="cards">
 
 <div class="card">
 
-<h3>Incoming Documents</h3>
+<h3>Incoming</h3>
 
 <h2>{{ incoming_count }}</h2>
 
 <a href="/incoming">
-<button class="green">Open Folder</button>
+<button class="green">Open</button>
 </a>
 
 </div>
 
 <div class="card">
 
-<h3>Rejected Documents</h3>
+<h3>Rejected</h3>
 
 <h2>{{ rejected_count }}</h2>
 
 <a href="/rejected">
-<button class="red">Open Folder</button>
+<button class="red">Open</button>
 </a>
 
 </div>
 
 </div>
 
-<div class="chart-panel">
+
+<div class="panel">
 
 <h3>Processing Trend</h3>
 
-<canvas id="trendChart"></canvas>
+<canvas id="chart"></canvas>
 
 </div>
 
+
 <script>
 
-new Chart(document.getElementById("trendChart"),{
+flatpickr("#start_date",{dateFormat:"Y-m-d"});
+flatpickr("#end_date",{dateFormat:"Y-m-d"});
+
+new Chart(document.getElementById("chart"),{
 
 type:"line",
 
 data:{
 labels:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
 datasets:[{
-data:[5,7,4,9,6,8,3],
-borderColor:"#10b981",
-fill:false,
-tension:0.4
+data:[4,7,3,9,6,8,2],
+borderColor:"#00f5a0",
+fill:false
 }]
 }
 
