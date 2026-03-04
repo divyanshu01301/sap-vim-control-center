@@ -1,18 +1,18 @@
 from flask import (Flask, render_template, request, redirect,
                    session, jsonify, send_from_directory, Response, stream_with_context)
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import threading
 import time
 import vim_email_processor
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center_2024_secret")
-
-# ==============================
-# STORAGE PATHS
-# ==============================
+app.secret_key = os.environ.get("SECRET_KEY", "vim_dpe_2024_super_secret_key_x9z")
+app.config["SESSION_COOKIE_SAMESITE"]    = "Lax"
+app.config["SESSION_COOKIE_SECURE"]      = False
+app.config["SESSION_COOKIE_HTTPONLY"]    = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=24)
 
 BASE_FOLDER     = os.path.join(os.getcwd(), "data")
 INCOMING_FOLDER = os.path.join(BASE_FOLDER, "incoming")
@@ -23,17 +23,9 @@ LOG_FILE        = os.path.join(LOG_FOLDER,  "vim_log.log")
 for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
-# ==============================
-# PROCESSING STATE
-# ==============================
-
 _processing_lock  = threading.Lock()
 processing_status = {"running": False, "result": None}
 
-
-# ==============================
-# LOGIN PROTECTION
-# ==============================
 
 def login_required(f):
     @wraps(f)
@@ -44,51 +36,36 @@ def login_required(f):
     return wrapper
 
 
-# ==============================
-# LOGIN
-# ==============================
-
 @app.route("/", methods=["GET", "POST"])
 def login():
+    if "email" in session:
+        return redirect("/dashboard")
     if request.method == "POST":
         email_val = request.form.get("email", "").strip()
         password  = request.form.get("password", "")
         if not email_val or not password:
             return render_template("login.html", error="Please enter both email and password.")
+        session.permanent = True
         session["email"]    = email_val
         session["password"] = password
         return redirect("/dashboard")
-    return render_template("login.html")
+    return render_template("login.html", error=None)
 
-
-# ==============================
-# DASHBOARD
-# ==============================
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    incoming_count = len([
-        f for f in os.listdir(INCOMING_FOLDER)
-        if os.path.isfile(os.path.join(INCOMING_FOLDER, f))
-    ])
-    rejected_count = len([
-        f for f in os.listdir(REJECTED_FOLDER)
-        if os.path.isfile(os.path.join(REJECTED_FOLDER, f))
-    ])
+    incoming_count = len([f for f in os.listdir(INCOMING_FOLDER)
+                          if os.path.isfile(os.path.join(INCOMING_FOLDER, f))])
+    rejected_count = len([f for f in os.listdir(REJECTED_FOLDER)
+                          if os.path.isfile(os.path.join(REJECTED_FOLDER, f))])
     message = session.pop("message", None)
-    return render_template(
-        "dashboard.html",
-        user=session["email"],
-        incoming_count=incoming_count,
-        rejected_count=rejected_count,
-        message=message,
-    )
+    return render_template("dashboard.html",
+                           user=session["email"],
+                           incoming_count=incoming_count,
+                           rejected_count=rejected_count,
+                           message=message)
 
-
-# ==============================
-# PROCESS EMAILS  (background thread)
-# ==============================
 
 def _run_in_background(email_user, email_pass, start_date, end_date):
     global processing_status
@@ -117,31 +94,22 @@ def process_emails():
         if processing_status["running"]:
             session["message"] = "Processing already running. Watch the live log."
             return redirect("/dashboard")
-
         start_date = request.form.get("start_date", "").strip()
         end_date   = request.form.get("end_date",   "").strip()
-
         if not start_date or not end_date:
             session["message"] = "Please select both a start and end date."
             return redirect("/dashboard")
-
         processing_status["running"] = True
         processing_status["result"]  = None
-
         t = threading.Thread(
             target=_run_in_background,
             args=(session["email"], session["password"], start_date, end_date),
             daemon=True,
         )
         t.start()
-
-    session["message"] = f"Processing started for {start_date} to {end_date}. Watch the live log below."
+    session["message"] = f"Processing started for {start_date} to {end_date}."
     return redirect("/dashboard")
 
-
-# ==============================
-# STATUS + COUNTS APIs
-# ==============================
 
 @app.route("/api/status")
 @login_required
@@ -158,10 +126,6 @@ def api_counts():
                if os.path.isfile(os.path.join(REJECTED_FOLDER, f))])
     return jsonify({"incoming": inc, "rejected": rej})
 
-
-# ==============================
-# LIVE LOG  Server-Sent Events
-# ==============================
 
 @app.route("/api/log-stream")
 @login_required
@@ -191,34 +155,12 @@ def log_stream():
             else:
                 yield "data: Waiting for log file...\n\n"
             time.sleep(0.5)
-
     return Response(
         stream_with_context(generate()),
         mimetype="text/event-stream",
-        headers={
-            "Cache-Control":     "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
-
-# ==============================
-# LEGACY JSON LOG
-# ==============================
-
-@app.route("/api/logs")
-@login_required
-def logs():
-    if not os.path.exists(LOG_FILE):
-        return jsonify({"logs": ["Waiting for logs..."]})
-    with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
-    return jsonify({"logs": [l.rstrip() for l in lines[-60:]]})
-
-
-# ==============================
-# FOLDER HELPERS
-# ==============================
 
 def _list_files(folder):
     files = []
@@ -229,22 +171,17 @@ def _list_files(folder):
                 "name":      f,
                 "size":      round(os.path.getsize(full) / 1024, 2),
                 "timestamp": datetime.fromtimestamp(
-                    os.path.getmtime(full)
-                ).strftime("%Y-%m-%d %H:%M"),
+                    os.path.getmtime(full)).strftime("%d %b %Y %H:%M"),
             })
     return files
 
-
-# ==============================
-# INCOMING / REJECTED VIEWS
-# ==============================
 
 @app.route("/incoming")
 @login_required
 def incoming():
     files = _list_files(INCOMING_FOLDER)
     return render_template("folder_view.html",
-                           title="Incoming Documents", files=files,
+                           title="Incoming Invoices", files=files,
                            folder="incoming", total_files=len(files))
 
 
@@ -256,10 +193,6 @@ def rejected():
                            title="Rejected Documents", files=files,
                            folder="rejected", total_files=len(files))
 
-
-# ==============================
-# PREVIEW / DOWNLOAD
-# ==============================
 
 @app.route("/file/<folder>/<filename>")
 @login_required
@@ -275,10 +208,6 @@ def download(folder, filename):
     return send_from_directory(directory, filename, as_attachment=True)
 
 
-# ==============================
-# LOGOUT
-# ==============================
-
 @app.route("/logout")
 def logout():
     session.clear()
@@ -286,4 +215,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
