@@ -7,6 +7,7 @@ import vim_email_processor
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center")
 
+
 # ==============================
 # STORAGE PATHS
 # ==============================
@@ -22,8 +23,9 @@ LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
 for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
+
 # ==============================
-# AUTH DECORATOR
+# LOGIN PROTECTION
 # ==============================
 
 def login_required(f):
@@ -36,10 +38,10 @@ def login_required(f):
 
 
 # ==============================
-# LOGIN
+# LOGIN PAGE
 # ==============================
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET","POST"])
 def login():
 
     if request.method == "POST":
@@ -81,7 +83,7 @@ def dashboard():
 
 
 # ==============================
-# EMAIL PROCESSING
+# PROCESS EMAILS
 # ==============================
 
 @app.route("/process", methods=["POST"])
@@ -113,7 +115,7 @@ def process_emails():
 
 
 # ==============================
-# VIEW FOLDERS
+# INCOMING DOCUMENTS
 # ==============================
 
 @app.route("/incoming")
@@ -130,7 +132,7 @@ def incoming():
 
             files.append({
                 "name": f,
-                "size": round(os.path.getsize(full) / 1024, 2),
+                "size": round(os.path.getsize(full)/1024,2),
                 "timestamp": datetime.fromtimestamp(
                     os.path.getmtime(full)
                 ).strftime("%Y-%m-%d %H:%M")
@@ -140,9 +142,14 @@ def incoming():
         "folder_view.html",
         title="Incoming Documents",
         files=files,
-        folder="incoming"
+        folder="incoming",
+        total_files=len(files)
     )
 
+
+# ==============================
+# REJECTED DOCUMENTS
+# ==============================
 
 @app.route("/rejected")
 @login_required
@@ -158,7 +165,7 @@ def rejected():
 
             files.append({
                 "name": f,
-                "size": round(os.path.getsize(full) / 1024, 2),
+                "size": round(os.path.getsize(full)/1024,2),
                 "timestamp": datetime.fromtimestamp(
                     os.path.getmtime(full)
                 ).strftime("%Y-%m-%d %H:%M")
@@ -168,32 +175,33 @@ def rejected():
         "folder_view.html",
         title="Rejected Documents",
         files=files,
-        folder="rejected"
+        folder="rejected",
+        total_files=len(files)
     )
 
 
 # ==============================
-# FILE PREVIEW
+# PREVIEW FILE
 # ==============================
 
 @app.route("/file/<folder>/<filename>")
 @login_required
 def preview(folder, filename):
 
-    directory = INCOMING_FOLDER if folder == "incoming" else REJECTED_FOLDER
+    directory = INCOMING_FOLDER if folder=="incoming" else REJECTED_FOLDER
 
     return send_from_directory(directory, filename)
 
 
 # ==============================
-# DOWNLOAD
+# DOWNLOAD FILE
 # ==============================
 
 @app.route("/download/<folder>/<filename>")
 @login_required
 def download(folder, filename):
 
-    directory = INCOMING_FOLDER if folder == "incoming" else REJECTED_FOLDER
+    directory = INCOMING_FOLDER if folder=="incoming" else REJECTED_FOLDER
 
     return send_from_directory(directory, filename, as_attachment=True)
 
@@ -207,12 +215,18 @@ def download(folder, filename):
 def logs():
 
     if not os.path.exists(LOG_FILE):
-        return jsonify({"logs": []})
+        return jsonify({"logs":["Log file not created yet"]})
 
-    with open(LOG_FILE) as f:
-        lines = f.readlines()[-40:]
+    try:
 
-    return jsonify({"logs": lines})
+        with open(LOG_FILE,"r") as f:
+            lines = f.readlines()
+
+        return jsonify({"logs": lines[-40:]})
+
+    except Exception as e:
+
+        return jsonify({"logs":[str(e)]})
 
 
 # ==============================

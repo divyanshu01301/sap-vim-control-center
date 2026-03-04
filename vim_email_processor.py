@@ -17,6 +17,10 @@ IMAP_SERVER = "imap.one.com"
 IMAP_PORT = 993
 
 
+# ============================================================
+# EMAIL → PDF
+# ============================================================
+
 def convert_email_to_pdf(content, output_path):
 
     c = canvas.Canvas(output_path, pagesize=letter)
@@ -48,20 +52,29 @@ def run_processor(email_user, email_pass,
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
+    logging.info("===== VIM Email Processing Started =====")
+
     processed_count = 0
 
     try:
+
+        logging.info("Connecting to mailbox")
 
         mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
         mail.login(email_user, email_pass)
         mail.select("INBOX")
 
+        logging.info("Mailbox connected successfully")
+
     except Exception as e:
 
+        logging.error(f"Login failed: {str(e)}")
         return f"Login failed: {str(e)}"
 
     status, messages = mail.search(None, "ALL")
     email_ids = messages[0].split()
+
+    logging.info(f"{len(email_ids)} emails found in mailbox")
 
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
@@ -78,6 +91,7 @@ def run_processor(email_user, email_pass,
         try:
             email_datetime = email.utils.parsedate_to_datetime(email_date)
         except:
+            logging.warning("Failed to parse email date")
             continue
 
         if not (start_date <= email_datetime.replace(tzinfo=None) <= end_date):
@@ -85,6 +99,8 @@ def run_processor(email_user, email_pass,
 
         subject = msg.get("Subject", "")
         sender = msg.get("From", "")
+
+        logging.info(f"Processing email from {sender} | Subject: {subject}")
 
         body_text = ""
 
@@ -102,6 +118,8 @@ def run_processor(email_user, email_pass,
 
                     filepath = os.path.join(incoming_folder, filename)
 
+                    logging.info(f"PDF attachment detected: {filename}")
+
                     with open(filepath, "wb") as f:
                         f.write(part.get_payload(decode=True))
 
@@ -118,6 +136,8 @@ def run_processor(email_user, email_pass,
 
                         if "invoice" in text.lower() or "inv" in text.lower():
 
+                            logging.info(f"Invoice detected in PDF: {filename}")
+
                             os.rename(
                                 filepath,
                                 os.path.join(incoming_folder, filename)
@@ -125,12 +145,16 @@ def run_processor(email_user, email_pass,
 
                         else:
 
+                            logging.info(f"Rejected PDF (not invoice): {filename}")
+
                             os.rename(
                                 filepath,
                                 os.path.join(rejected_folder, filename)
                             )
 
-                    except:
+                    except Exception as e:
+
+                        logging.error(f"PDF parsing failed: {str(e)}")
 
                         os.rename(
                             filepath,
@@ -138,6 +162,8 @@ def run_processor(email_user, email_pass,
                         )
 
         if not pdf_found:
+
+            logging.info("No PDF attachment found — converting email to PDF")
 
             if msg.is_multipart():
 
@@ -171,14 +197,20 @@ Body:
 
             if "invoice" in full_text.lower() or "inv" in full_text.lower():
 
+                logging.info("Invoice keyword detected in email body")
+
                 os.rename(pdf_path, os.path.join(incoming_folder, filename))
 
             else:
+
+                logging.info("Email rejected (not invoice)")
 
                 os.rename(pdf_path, os.path.join(rejected_folder, filename))
 
         processed_count += 1
 
     mail.logout()
+
+    logging.info(f"Processing finished. {processed_count} emails processed.")
 
     return f"Processing completed. {processed_count} emails processed."
