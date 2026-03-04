@@ -1,6 +1,6 @@
 # ============================================================
 # SAP VIM Email Processor
-# PDF / Email → PDF/A + Invoice Classification
+# Email / PDF → PDF/A + Invoice Classification
 # ============================================================
 
 import imaplib
@@ -8,6 +8,7 @@ import email
 import os
 import pdfplumber
 import logging
+import subprocess
 from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -36,10 +37,36 @@ def convert_email_to_pdf(content, output_path):
 
 
 # ============================================================
+# PDF → PDF/A
+# ============================================================
+
+def convert_to_pdfa(input_pdf, output_pdf):
+
+    try:
+
+        subprocess.run([
+            "gs",
+            "-dPDFA",
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-sDEVICE=pdfwrite",
+            f"-sOutputFile={output_pdf}",
+            input_pdf
+        ], check=True)
+
+        os.remove(input_pdf)
+
+    except Exception as e:
+
+        logging.warning("PDF/A conversion failed, keeping original PDF")
+
+
+# ============================================================
 # MAIN PROCESSOR
 # ============================================================
 
-def run_processor(email_user, email_pass,
+def run_processor(email_user,
+                  email_pass,
                   incoming_folder,
                   rejected_folder,
                   log_file,
@@ -64,20 +91,22 @@ def run_processor(email_user, email_pass,
         mail.login(email_user, email_pass)
         mail.select("INBOX")
 
-        logging.info("Mailbox connected successfully")
+        logging.info("Mailbox connected")
 
     except Exception as e:
 
         logging.error(f"Login failed: {str(e)}")
         return f"Login failed: {str(e)}"
 
+
     status, messages = mail.search(None, "ALL")
     email_ids = messages[0].split()
 
-    logging.info(f"{len(email_ids)} emails found in mailbox")
-
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+    logging.info(f"{len(email_ids)} emails found")
+
 
     for email_id in email_ids:
 
@@ -91,20 +120,25 @@ def run_processor(email_user, email_pass,
         try:
             email_datetime = email.utils.parsedate_to_datetime(email_date)
         except:
-            logging.warning("Failed to parse email date")
             continue
 
         if not (start_date <= email_datetime.replace(tzinfo=None) <= end_date):
             continue
 
+
         subject = msg.get("Subject", "")
         sender = msg.get("From", "")
 
-        logging.info(f"Processing email from {sender} | Subject: {subject}")
+        logging.info(f"Processing email from {sender}")
+
 
         body_text = ""
-
         pdf_found = False
+
+
+        # ====================================================
+        # CASE 1 — PDF ATTACHMENT EXISTS
+        # ====================================================
 
         if msg.is_multipart():
 
@@ -116,54 +150,58 @@ def run_processor(email_user, email_pass,
 
                     pdf_found = True
 
-                    filepath = os.path.join(incoming_folder, filename)
+                    clean_name = filename.replace(" ", "_")
 
-                    logging.info(f"PDF attachment detected: {filename}")
+                    temp_path = os.path.join(incoming_folder, "temp_" + clean_name)
 
-                    with open(filepath, "wb") as f:
+                    with open(temp_path, "wb") as f:
                         f.write(part.get_payload(decode=True))
+
+                    logging.info(f"PDF attachment detected: {clean_name}")
 
                     try:
 
                         text = ""
 
-                        with pdfplumber.open(filepath) as pdf:
+                        with pdfplumber.open(temp_path) as pdf:
 
                             for page in pdf.pages:
                                 page_text = page.extract_text()
                                 if page_text:
                                     text += page_text
 
+
+                        # INVOICE CHECK
                         if "invoice" in text.lower() or "inv" in text.lower():
 
-                            logging.info(f"Invoice detected in PDF: {filename}")
-
-                            os.rename(
-                                filepath,
-                                os.path.join(incoming_folder, filename)
-                            )
+                            final_path = os.path.join(incoming_folder, clean_name)
+                            logging.info("Invoice detected")
 
                         else:
 
-                            logging.info(f"Rejected PDF (not invoice): {filename}")
+                            final_path = os.path.join(rejected_folder, clean_name)
+                            logging.info("PDF rejected (no invoice keyword)")
 
-                            os.rename(
-                                filepath,
-                                os.path.join(rejected_folder, filename)
-                            )
+
+                        convert_to_pdfa(temp_path, final_path)
 
                     except Exception as e:
 
-                        logging.error(f"PDF parsing failed: {str(e)}")
+                        logging.error("PDF read error")
 
                         os.rename(
-                            filepath,
-                            os.path.join(rejected_folder, filename)
+                            temp_path,
+                            os.path.join(rejected_folder, clean_name)
                         )
+
+
+        # ====================================================
+        # CASE 2 — NO PDF ATTACHMENT
+        # ====================================================
 
         if not pdf_found:
 
-            logging.info("No PDF attachment found — converting email to PDF")
+            logging.info("No attachment found, converting email to PDF")
 
             if msg.is_multipart():
 
@@ -171,11 +209,14 @@ def run_processor(email_user, email_pass,
 
                     if part.get_content_type() == "text/plain":
 
-                        body_text += part.get_payload(decode=True).decode(errors="ignore")
+                        body_text += part.get_payload(
+                            decode=True).decode(errors="ignore")
 
             else:
 
-                body_text = msg.get_payload(decode=True).decode(errors="ignore")
+                body_text = msg.get_payload(
+                    decode=True).decode(errors="ignore")
+
 
             full_text = f"""
 From: {sender}
@@ -189,28 +230,33 @@ Body:
 {body_text}
 """
 
+
             filename = f"email_{processed_count}.pdf"
 
-            pdf_path = os.path.join(incoming_folder, filename)
+            temp_pdf = os.path.join(incoming_folder, "temp_" + filename)
 
-            convert_email_to_pdf(full_text, pdf_path)
+            convert_email_to_pdf(full_text, temp_pdf)
+
 
             if "invoice" in full_text.lower() or "inv" in full_text.lower():
 
-                logging.info("Invoice keyword detected in email body")
-
-                os.rename(pdf_path, os.path.join(incoming_folder, filename))
+                final_pdf = os.path.join(incoming_folder, filename)
+                logging.info("Invoice detected in email body")
 
             else:
 
-                logging.info("Email rejected (not invoice)")
+                final_pdf = os.path.join(rejected_folder, filename)
+                logging.info("Email rejected")
 
-                os.rename(pdf_path, os.path.join(rejected_folder, filename))
+
+            convert_to_pdfa(temp_pdf, final_pdf)
+
 
         processed_count += 1
 
+
     mail.logout()
 
-    logging.info(f"Processing finished. {processed_count} emails processed.")
+    logging.info("===== Processing Completed =====")
 
     return f"Processing completed. {processed_count} emails processed."

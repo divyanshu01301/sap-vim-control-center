@@ -102,7 +102,6 @@ color:#00f5a0;
 
 </form>
 
-
 <div class="cards">
 
 <div class="card">
@@ -119,35 +118,28 @@ color:#00f5a0;
 
 </div>
 
-
 <div class="panel">
 
 <div>
 
 <h3>Processing Trend</h3>
-
 <canvas id="chart"></canvas>
 
 </div>
 
-
 <div>
 
 <h3>Live Logs</h3>
-
 <div class="logs" id="logs">Waiting for logs...</div>
 
 </div>
 
 </div>
 
-
 <script>
 
 new Chart(document.getElementById("chart"),{
-
 type:"line",
-
 data:{
 labels:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
 datasets:[{
@@ -156,45 +148,21 @@ borderColor:"#00f5a0",
 fill:false
 }]
 }
-
 });
-
 
 function updateLogs(){
 
 fetch("/api/logs")
-
-.then(response => response.json())
-
-.then(data => {
-
-let logBox = document.getElementById("logs")
-
-if(!data.logs || data.logs.length === 0){
-
-logBox.innerHTML = "Waiting for logs..."
-
-return
-
-}
-
-logBox.innerHTML = data.logs.join("<br>")
-
-logBox.scrollTop = logBox.scrollHeight
-
-})
-
-.catch(error => {
-
-console.log("Log error:", error)
-
+.then(r=>r.json())
+.then(d=>{
+let box=document.getElementById("logs")
+box.innerHTML=d.logs.join("<br>")
+box.scrollTop=box.scrollHeight
 })
 
 }
-
 
 updateLogs()
-
 setInterval(updateLogs,3000)
 
 </script>

@@ -7,7 +7,6 @@ import vim_email_processor
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center")
 
-
 # ==============================
 # STORAGE PATHS
 # ==============================
@@ -38,7 +37,7 @@ def login_required(f):
 
 
 # ==============================
-# LOGIN PAGE
+# LOGIN
 # ==============================
 
 @app.route("/", methods=["GET","POST"])
@@ -115,7 +114,7 @@ def process_emails():
 
 
 # ==============================
-# INCOMING DOCUMENTS
+# VIEW INCOMING
 # ==============================
 
 @app.route("/incoming")
@@ -148,7 +147,7 @@ def incoming():
 
 
 # ==============================
-# REJECTED DOCUMENTS
+# VIEW REJECTED
 # ==============================
 
 @app.route("/rejected")
@@ -215,18 +214,12 @@ def download(folder, filename):
 def logs():
 
     if not os.path.exists(LOG_FILE):
-        return jsonify({"logs":["Log file not created yet"]})
+        return jsonify({"logs":["Waiting for logs..."]})
 
-    try:
+    with open(LOG_FILE,"r") as f:
+        lines = f.readlines()
 
-        with open(LOG_FILE,"r") as f:
-            lines = f.readlines()
-
-        return jsonify({"logs": lines[-40:]})
-
-    except Exception as e:
-
-        return jsonify({"logs":[str(e)]})
+    return jsonify({"logs": lines[-40:]})
 
 
 # ==============================
