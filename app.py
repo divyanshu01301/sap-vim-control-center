@@ -5,34 +5,41 @@ import os
 import vim_email_processor
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY","vim_control")
+app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center")
 
-BASE_FOLDER = os.path.join(os.getcwd(),"data")
 
-INCOMING_FOLDER = os.path.join(BASE_FOLDER,"incoming")
-REJECTED_FOLDER = os.path.join(BASE_FOLDER,"rejected")
+# =========================================================
+# STORAGE PATHS
+# =========================================================
 
-for folder in [INCOMING_FOLDER,REJECTED_FOLDER]:
-    os.makedirs(folder,exist_ok=True)
+BASE_FOLDER = os.path.join(os.getcwd(), "data")
 
-# ==========================
-# LOGIN REQUIRED
-# ==========================
+INCOMING_FOLDER = os.path.join(BASE_FOLDER, "incoming")
+REJECTED_FOLDER = os.path.join(BASE_FOLDER, "rejected")
+
+# create folders automatically (important for Render)
+for folder in [INCOMING_FOLDER, REJECTED_FOLDER]:
+    os.makedirs(folder, exist_ok=True)
+
+
+# =========================================================
+# LOGIN REQUIRED DECORATOR
+# =========================================================
 
 def login_required(f):
     @wraps(f)
-    def wrapper(*args,**kwargs):
+    def wrapper(*args, **kwargs):
         if "email" not in session:
             return redirect("/")
-        return f(*args,**kwargs)
+        return f(*args, **kwargs)
     return wrapper
 
 
-# ==========================
-# LOGIN
-# ==========================
+# =========================================================
+# LOGIN PAGE
+# =========================================================
 
-@app.route("/",methods=["GET","POST"])
+@app.route("/", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
@@ -41,7 +48,7 @@ def login():
         password = request.form.get("password")
 
         if not email or not password:
-            return render_template("login.html",error="Enter credentials")
+            return render_template("login.html", error="Enter credentials")
 
         session["email"] = email
         session["password"] = password
@@ -51,9 +58,9 @@ def login():
     return render_template("login.html")
 
 
-# ==========================
+# =========================================================
 # DASHBOARD
-# ==========================
+# =========================================================
 
 @app.route("/dashboard")
 @login_required
@@ -62,7 +69,7 @@ def dashboard():
     incoming_count = len(os.listdir(INCOMING_FOLDER))
     rejected_count = len(os.listdir(REJECTED_FOLDER))
 
-    message = session.pop("message",None)
+    message = session.pop("message", None)
 
     return render_template(
         "dashboard.html",
@@ -73,11 +80,11 @@ def dashboard():
     )
 
 
-# ==========================
+# =========================================================
 # PROCESS EMAILS
-# ==========================
+# =========================================================
 
-@app.route("/process",methods=["POST"])
+@app.route("/process", methods=["POST"])
 @login_required
 def process():
 
@@ -99,31 +106,34 @@ def process():
 
     except Exception as e:
 
-        session["message"] = str(e)
+        import traceback
+        print(traceback.format_exc())
+
+        session["message"] = f"Processing failed: {str(e)}"
 
     return redirect("/dashboard")
 
 
-# ==========================
-# INCOMING
-# ==========================
+# =========================================================
+# INCOMING DOCUMENTS
+# =========================================================
 
 @app.route("/incoming")
 @login_required
 def incoming():
 
-    files=[]
+    files = []
 
     for f in os.listdir(INCOMING_FOLDER):
 
-        path=os.path.join(INCOMING_FOLDER,f)
+        path = os.path.join(INCOMING_FOLDER, f)
 
         if os.path.isfile(path):
 
             files.append({
-                "name":f,
-                "size":round(os.path.getsize(path)/1024,2),
-                "timestamp":datetime.fromtimestamp(
+                "name": f,
+                "size": round(os.path.getsize(path) / 1024, 2),
+                "timestamp": datetime.fromtimestamp(
                     os.path.getmtime(path)
                 ).strftime("%Y-%m-%d %H:%M")
             })
@@ -136,26 +146,26 @@ def incoming():
     )
 
 
-# ==========================
-# REJECTED
-# ==========================
+# =========================================================
+# REJECTED DOCUMENTS
+# =========================================================
 
 @app.route("/rejected")
 @login_required
 def rejected():
 
-    files=[]
+    files = []
 
     for f in os.listdir(REJECTED_FOLDER):
 
-        path=os.path.join(REJECTED_FOLDER,f)
+        path = os.path.join(REJECTED_FOLDER, f)
 
         if os.path.isfile(path):
 
             files.append({
-                "name":f,
-                "size":round(os.path.getsize(path)/1024,2),
-                "timestamp":datetime.fromtimestamp(
+                "name": f,
+                "size": round(os.path.getsize(path) / 1024, 2),
+                "timestamp": datetime.fromtimestamp(
                     os.path.getmtime(path)
                 ).strftime("%Y-%m-%d %H:%M")
             })
@@ -168,42 +178,64 @@ def rejected():
     )
 
 
-# ==========================
-# PREVIEW PDF
-# ==========================
+# =========================================================
+# PREVIEW FILE
+# =========================================================
 
 @app.route("/file/<folder>/<filename>")
 @login_required
-def preview(folder,filename):
+def preview(folder, filename):
 
-    directory = INCOMING_FOLDER if folder=="incoming" else REJECTED_FOLDER
+    if folder == "incoming":
+        directory = INCOMING_FOLDER
 
-    return send_from_directory(directory,filename)
+    elif folder == "rejected":
+        directory = REJECTED_FOLDER
+
+    else:
+        return "Invalid folder", 400
+
+    return send_from_directory(directory, filename)
 
 
-# ==========================
-# DOWNLOAD
-# ==========================
+# =========================================================
+# DOWNLOAD FILE
+# =========================================================
 
 @app.route("/download/<folder>/<filename>")
 @login_required
-def download(folder,filename):
+def download(folder, filename):
 
-    directory = INCOMING_FOLDER if folder=="incoming" else REJECTED_FOLDER
+    if folder == "incoming":
+        directory = INCOMING_FOLDER
 
-    return send_from_directory(directory,filename,as_attachment=True)
+    elif folder == "rejected":
+        directory = REJECTED_FOLDER
+
+    else:
+        return "Invalid folder", 400
+
+    return send_from_directory(directory, filename, as_attachment=True)
 
 
-# ==========================
+# =========================================================
 # LOGOUT
-# ==========================
+# =========================================================
 
 @app.route("/logout")
 def logout():
 
     session.clear()
+
     return redirect("/")
 
 
+# =========================================================
+# RUN SERVER (LOCAL + RENDER)
+# =========================================================
+
 if __name__ == "__main__":
-    app.run()
+
+    port = int(os.environ.get("PORT", 10000))
+
+    app.run(host="0.0.0.0", port=port)
