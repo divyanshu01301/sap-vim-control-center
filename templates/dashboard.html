@@ -1,141 +1,142 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DPE Technologies | Control Center</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>DPE Technologies | Control Center</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f2b46, #071a2c);
-            color: white;
-        }
+<style>
 
-        .header {
-            padding: 25px;
-            text-align: center;
-            font-size: 22px;
-            background: rgba(0,0,0,0.3);
-            letter-spacing: 1px;
-        }
+body{
+margin:0;
+font-family:'Segoe UI',sans-serif;
+background:linear-gradient(135deg,#0f2b46,#071a2c);
+color:white;
+}
 
-        .container {
-            width: 85%;
-            margin: 40px auto;
-        }
+.header{
+padding:25px;
+text-align:center;
+font-size:22px;
+background:rgba(0,0,0,0.3);
+letter-spacing:1px;
+}
 
-        .success {
-            margin: 15px 0;
-            padding: 12px;
-            background: linear-gradient(90deg, #00c853, #00e676);
-            border-radius: 6px;
-            font-weight: bold;
-        }
+.container{
+width:85%;
+margin:40px auto;
+}
 
-        .btn {
-            padding: 12px 22px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-right: 10px;
-        }
+.success{
+margin:15px 0;
+padding:12px;
+background:linear-gradient(90deg,#00c853,#00e676);
+border-radius:6px;
+font-weight:bold;
+}
 
-        .btn-primary { background: #00c6ff; color: white; }
-        .btn-danger { background: #ff3c5f; color: white; }
-        .btn-folder { background: #00f5a0; color: black; }
+.btn{
+padding:12px 22px;
+border:none;
+border-radius:6px;
+font-weight:bold;
+cursor:pointer;
+margin-right:10px;
+}
 
-        .cards {
-            display: flex;
-            gap: 25px;
-            margin-top: 30px;
-        }
+.btn-primary{background:#00c6ff;color:white;}
+.btn-danger{background:#ff3c5f;color:white;}
+.btn-folder{background:#00f5a0;color:black;}
 
-        .card {
-            flex: 1;
-            background: rgba(255,255,255,0.05);
-            padding: 25px;
-            border-radius: 15px;
-            backdrop-filter: blur(8px);
-            text-align: center;
-        }
+.cards{
+display:flex;
+gap:25px;
+margin-top:30px;
+}
 
-        .card h3 {
-            margin-bottom: 10px;
-            font-weight: 400;
-        }
+.card{
+flex:1;
+background:rgba(255,255,255,0.05);
+padding:25px;
+border-radius:15px;
+backdrop-filter:blur(8px);
+text-align:center;
+}
 
-        .card p {
-            font-size: 34px;
-            font-weight: bold;
-        }
+.card h3{
+margin-bottom:10px;
+font-weight:400;
+}
 
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 50px;
-        }
+.card p{
+font-size:34px;
+font-weight:bold;
+}
 
-        .panel {
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 15px;
-        }
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:30px;
+margin-top:50px;
+}
 
-        #logs {
-            height: 250px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 13px;
-            background: #051421;
-            padding: 15px;
-            border-radius: 8px;
-            color: #00f5a0;
-        }
+.panel{
+background:rgba(255,255,255,0.05);
+padding:20px;
+border-radius:15px;
+}
 
-        .date-box{
-            margin-top:20px;
-            background: rgba(255,255,255,0.05);
-            padding:20px;
-            border-radius:10px;
-        }
+#logs{
+height:250px;
+overflow-y:auto;
+font-family:monospace;
+font-size:13px;
+background:#051421;
+padding:15px;
+border-radius:8px;
+color:#00f5a0;
+}
 
-        input{
-            padding:8px;
-            border-radius:6px;
-            border:none;
-            margin-right:10px;
-        }
+.date-box{
+margin-top:20px;
+background:rgba(255,255,255,0.05);
+padding:20px;
+border-radius:10px;
+}
 
-    </style>
+input{
+padding:8px;
+border-radius:6px;
+border:none;
+margin-right:10px;
+}
+
+</style>
 </head>
+
 <body>
 
 <div class="header">
-    DPE. Technologies – SAP VIM Live Control Center
+DPE Technologies – SAP VIM Live Control Center
 </div>
 
 <div class="container">
 
-    <h3>Welcome {{ user }}</h3>
+<h3>Welcome {{ user }}</h3>
 
-    {% if message %}
-        <div class="success">{{ message }}</div>
-    {% endif %}
+{% if message %}
+<div class="success">{{ message }}</div>
+{% endif %}
 
-
-<!-- DATE RANGE + PROCESS BUTTON -->
+<!-- EMAIL PROCESSING -->
 
 <div class="date-box">
 
 <form action="/process" method="POST">
 
-<label>From Date:</label>
+<label>From Date</label>
 <input type="date" name="start_date" required>
 
-<label>To Date:</label>
+<label>To Date</label>
 <input type="date" name="end_date" required>
 
 <button class="btn btn-primary" type="submit">
@@ -149,23 +150,22 @@ Start Email Processing
 <br>
 
 <a href="/incoming">
-    <button class="btn btn-folder">
-        Incoming ({{ incoming_count }})
-    </button>
+<button class="btn btn-folder">
+Incoming ({{ incoming_count }})
+</button>
 </a>
 
 <a href="/rejected">
-    <button class="btn btn-danger">
-        Rejected ({{ rejected_count }})
-    </button>
+<button class="btn btn-danger">
+Rejected ({{ rejected_count }})
+</button>
 </a>
 
 <a href="/logout">
-    <button class="btn btn-danger">Logout</button>
+<button class="btn btn-danger">Logout</button>
 </a>
 
-
-<!-- Stats Cards -->
+<!-- CARDS -->
 
 <div class="cards">
 
@@ -181,8 +181,7 @@ Start Email Processing
 
 </div>
 
-
-<!-- Graph + Logs -->
+<!-- GRAPH + LOGS -->
 
 <div class="grid">
 
@@ -202,38 +201,56 @@ Start Email Processing
 
 <script>
 
-new Chart(document.getElementById('trendChart'), {
-type: 'line',
-data: {
-labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-datasets: [{
-label: 'Processing Volume',
-data: [5,8,6,12,7,9,4],
-borderColor: '#00f5a0',
-backgroundColor: 'rgba(0,245,160,0.2)',
-fill: true,
-tension: 0.4,
-pointRadius: 5,
-pointBackgroundColor: '#00f5a0'
+new Chart(document.getElementById('trendChart'),{
+
+type:'line',
+
+data:{
+labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+
+datasets:[{
+
+label:'Processing Volume',
+
+data:[5,8,6,12,7,9,4],
+
+borderColor:'#00f5a0',
+
+backgroundColor:'rgba(0,245,160,0.2)',
+
+fill:true,
+
+tension:0.4,
+
+pointRadius:5,
+
+pointBackgroundColor:'#00f5a0'
+
 }]
+
 },
-options: {
-plugins: { legend: { labels: { color: 'white' } } },
-scales: {
-x: { ticks: { color: 'white' } },
-y: { ticks: { color: 'white' } }
+
+options:{
+plugins:{legend:{labels:{color:'white'}}},
+
+scales:{
+x:{ticks:{color:'white'}},
+y:{ticks:{color:'white'}}
 }
 }
+
 });
 
 
 function updateLogs(){
 
 fetch("/api/logs")
-.then(res => res.json())
-.then(data => {
 
-document.getElementById("logs").innerHTML =
+.then(res=>res.json())
+
+.then(data=>{
+
+document.getElementById("logs").innerHTML=
 data.logs.join("<br>");
 
 });
