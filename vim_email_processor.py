@@ -1,8 +1,3 @@
-# ============================================================
-# SAP VIM Email Processor
-# Date Range + PDF Classification + PDF/A Conversion
-# ============================================================
-
 import imaplib
 import email
 import os
@@ -13,14 +8,9 @@ from reportlab.pdfgen import canvas
 import re
 import subprocess
 
-
 IMAP_SERVER = "imap.one.com"
 IMAP_PORT = 993
 
-
-# ============================================================
-# CLEAN FILE NAME
-# ============================================================
 
 def clean_filename(name):
 
@@ -29,10 +19,6 @@ def clean_filename(name):
 
     return name
 
-
-# ============================================================
-# EMAIL TEXT → PDF
-# ============================================================
 
 def email_to_pdf(text, output_path):
 
@@ -53,20 +39,15 @@ def email_to_pdf(text, output_path):
     c.save()
 
 
-# ============================================================
-# PDF → PDF/A CONVERSION
-# ============================================================
-
 def convert_to_pdfa(input_pdf, output_pdf):
 
     try:
 
         subprocess.run([
-            "gswin64c",              # Ghostscript command
+            "gs",
             "-dPDFA=2",
             "-dBATCH",
             "-dNOPAUSE",
-            "-dNOSAFER",
             "-sDEVICE=pdfwrite",
             "-sPDFACompatibilityPolicy=1",
             f"-sOutputFile={output_pdf}",
@@ -79,10 +60,6 @@ def convert_to_pdfa(input_pdf, output_pdf):
         print("PDF/A conversion failed:", e)
 
 
-# ============================================================
-# MAIN PROCESSOR
-# ============================================================
-
 def run_processor(
         email_user,
         email_pass,
@@ -91,32 +68,21 @@ def run_processor(
         start_date,
         end_date):
 
-
     processed = 0
 
     start = datetime.strptime(start_date,"%Y-%m-%d")
-
     end = datetime.strptime(end_date,"%Y-%m-%d") + timedelta(days=1)
 
     start_imap = start.strftime("%d-%b-%Y")
     end_imap = end.strftime("%d-%b-%Y")
 
-
     mail = imaplib.IMAP4_SSL(IMAP_SERVER,IMAP_PORT)
-
     mail.login(email_user,email_pass)
-
     mail.select("INBOX")
-
-
-    # ========================================
-    # ONLY UNREAD EMAILS IN DATE RANGE
-    # ========================================
 
     status,data = mail.search(None, f'(UNSEEN SINCE "{start_imap}" BEFORE "{end_imap}")')
 
     email_ids = data[0].split()
-
 
     for eid in email_ids:
 
@@ -126,16 +92,10 @@ def run_processor(
 
         msg = email.message_from_bytes(raw_email)
 
-
         subject = msg.get("Subject","")
         sender = msg.get("From","")
 
         pdf_found = False
-
-
-        # ====================================
-        # ATTACHMENT PROCESSING
-        # ====================================
 
         if msg.is_multipart():
 
@@ -154,7 +114,6 @@ def run_processor(
                     with open(temp_path,"wb") as f:
                         f.write(part.get_payload(decode=True))
 
-
                     text = ""
 
                     try:
@@ -171,7 +130,6 @@ def run_processor(
                     except:
                         text = ""
 
-
                     if "invoice" in text.lower() or "inv" in text.lower():
 
                         final_path = os.path.join(incoming_folder,filename)
@@ -180,14 +138,7 @@ def run_processor(
 
                         final_path = os.path.join(rejected_folder,filename)
 
-
                     convert_to_pdfa(temp_path, final_path)
-
-
-
-        # ====================================
-        # NO PDF → CREATE PDF FROM EMAIL
-        # ====================================
 
         if not pdf_found:
 
@@ -205,7 +156,6 @@ def run_processor(
 
                 body = msg.get_payload(decode=True).decode(errors="ignore")
 
-
             content=f"""
 From: {sender}
 
@@ -216,7 +166,6 @@ Body:
 {body}
 """
 
-
             filename=f"email_{processed}.pdf"
 
             filename=clean_filename(filename)
@@ -224,7 +173,6 @@ Body:
             temp_path=os.path.join(incoming_folder,"temp_"+filename)
 
             email_to_pdf(content,temp_path)
-
 
             if "invoice" in content.lower() or "inv" in content.lower():
 
@@ -234,19 +182,11 @@ Body:
 
                 final_path=os.path.join(rejected_folder,filename)
 
-
             convert_to_pdfa(temp_path, final_path)
-
-
-        # ====================================
-        # MARK EMAIL AS READ
-        # ====================================
 
         mail.store(eid, '+FLAGS', '\\Seen')
 
-
         processed+=1
-
 
     mail.logout()
 

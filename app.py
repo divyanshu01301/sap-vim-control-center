@@ -7,19 +7,27 @@ import vim_email_processor
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center")
 
-
-# =========================================================
-# STORAGE PATHS
-# =========================================================
-
 BASE_FOLDER = os.path.join(os.getcwd(), "data")
+os.makedirs(BASE_FOLDER, exist_ok=True)
 
-INCOMING_FOLDER = os.path.join(BASE_FOLDER, "incoming")
-REJECTED_FOLDER = os.path.join(BASE_FOLDER, "rejected")
 
-# create folders automatically (important for Render)
-for folder in [INCOMING_FOLDER, REJECTED_FOLDER]:
-    os.makedirs(folder, exist_ok=True)
+# =========================================================
+# USER SPECIFIC FOLDERS
+# =========================================================
+
+def get_user_folders():
+
+    user = session["email"].replace("@","_").replace(".","_")
+
+    user_folder = os.path.join(BASE_FOLDER, user)
+
+    incoming = os.path.join(user_folder,"incoming")
+    rejected = os.path.join(user_folder,"rejected")
+
+    os.makedirs(incoming, exist_ok=True)
+    os.makedirs(rejected, exist_ok=True)
+
+    return incoming, rejected
 
 
 # =========================================================
@@ -39,7 +47,7 @@ def login_required(f):
 # LOGIN PAGE
 # =========================================================
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET","POST"])
 def login():
 
     if request.method == "POST":
@@ -66,8 +74,10 @@ def login():
 @login_required
 def dashboard():
 
-    incoming_count = len(os.listdir(INCOMING_FOLDER))
-    rejected_count = len(os.listdir(REJECTED_FOLDER))
+    incoming_folder, rejected_folder = get_user_folders()
+
+    incoming_count = len(os.listdir(incoming_folder))
+    rejected_count = len(os.listdir(rejected_folder))
 
     message = session.pop("message", None)
 
@@ -91,13 +101,15 @@ def process():
     start_date = request.form.get("start_date")
     end_date = request.form.get("end_date")
 
+    incoming_folder, rejected_folder = get_user_folders()
+
     try:
 
         result = vim_email_processor.run_processor(
             session["email"],
             session["password"],
-            INCOMING_FOLDER,
-            REJECTED_FOLDER,
+            incoming_folder,
+            rejected_folder,
             start_date,
             end_date
         )
@@ -122,11 +134,13 @@ def process():
 @login_required
 def incoming():
 
+    incoming_folder, rejected_folder = get_user_folders()
+
     files = []
 
-    for f in os.listdir(INCOMING_FOLDER):
+    for f in os.listdir(incoming_folder):
 
-        path = os.path.join(INCOMING_FOLDER, f)
+        path = os.path.join(incoming_folder, f)
 
         if os.path.isfile(path):
 
@@ -154,11 +168,13 @@ def incoming():
 @login_required
 def rejected():
 
+    incoming_folder, rejected_folder = get_user_folders()
+
     files = []
 
-    for f in os.listdir(REJECTED_FOLDER):
+    for f in os.listdir(rejected_folder):
 
-        path = os.path.join(REJECTED_FOLDER, f)
+        path = os.path.join(rejected_folder, f)
 
         if os.path.isfile(path):
 
@@ -186,12 +202,12 @@ def rejected():
 @login_required
 def preview(folder, filename):
 
+    incoming_folder, rejected_folder = get_user_folders()
+
     if folder == "incoming":
-        directory = INCOMING_FOLDER
-
+        directory = incoming_folder
     elif folder == "rejected":
-        directory = REJECTED_FOLDER
-
+        directory = rejected_folder
     else:
         return "Invalid folder", 400
 
@@ -206,12 +222,12 @@ def preview(folder, filename):
 @login_required
 def download(folder, filename):
 
+    incoming_folder, rejected_folder = get_user_folders()
+
     if folder == "incoming":
-        directory = INCOMING_FOLDER
-
+        directory = incoming_folder
     elif folder == "rejected":
-        directory = REJECTED_FOLDER
-
+        directory = rejected_folder
     else:
         return "Invalid folder", 400
 
@@ -231,7 +247,7 @@ def logout():
 
 
 # =========================================================
-# RUN SERVER (LOCAL + RENDER)
+# RUN SERVER
 # =========================================================
 
 if __name__ == "__main__":
