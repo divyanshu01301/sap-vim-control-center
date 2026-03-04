@@ -94,6 +94,21 @@
             border-radius: 8px;
             color: #00f5a0;
         }
+
+        .date-box{
+            margin-top:20px;
+            background: rgba(255,255,255,0.05);
+            padding:20px;
+            border-radius:10px;
+        }
+
+        input{
+            padding:8px;
+            border-radius:6px;
+            border:none;
+            margin-right:10px;
+        }
+
     </style>
 </head>
 <body>
@@ -110,98 +125,124 @@
         <div class="success">{{ message }}</div>
     {% endif %}
 
-    <br>
 
-    <a href="/start">
-        <button class="btn btn-primary">Start Email Processing</button>
-    </a>
+<!-- DATE RANGE + PROCESS BUTTON -->
 
-    <a href="/incoming">
-        <button class="btn btn-folder">
-            Incoming ({{ incoming_count }})
-        </button>
-    </a>
+<div class="date-box">
 
-    <a href="/rejected">
-        <button class="btn btn-danger">
-            Rejected ({{ rejected_count }})
-        </button>
-    </a>
+<form action="/process" method="POST">
 
-    <a href="/logout">
-        <button class="btn btn-danger">Logout</button>
-    </a>
+<label>From Date:</label>
+<input type="date" name="start_date" required>
 
-    <!-- Stats Cards -->
-    <div class="cards">
-        <div class="card">
-            <h3>Incoming Documents</h3>
-            <p>{{ incoming_count }}</p>
-        </div>
+<label>To Date:</label>
+<input type="date" name="end_date" required>
 
-        <div class="card">
-            <h3>Rejected Documents</h3>
-            <p>{{ rejected_count }}</p>
-        </div>
-    </div>
+<button class="btn btn-primary" type="submit">
+Start Email Processing
+</button>
 
-    <!-- Graph + Logs -->
-    <div class="grid">
+</form>
 
-        <div class="panel">
-            <h3>Processing Trend</h3>
-            <canvas id="trendChart"></canvas>
-        </div>
+</div>
 
-        <div class="panel">
-            <h3>Live System Logs</h3>
-            <div id="logs"></div>
-        </div>
+<br>
 
-    </div>
+<a href="/incoming">
+    <button class="btn btn-folder">
+        Incoming ({{ incoming_count }})
+    </button>
+</a>
+
+<a href="/rejected">
+    <button class="btn btn-danger">
+        Rejected ({{ rejected_count }})
+    </button>
+</a>
+
+<a href="/logout">
+    <button class="btn btn-danger">Logout</button>
+</a>
+
+
+<!-- Stats Cards -->
+
+<div class="cards">
+
+<div class="card">
+<h3>Incoming Documents</h3>
+<p>{{ incoming_count }}</p>
+</div>
+
+<div class="card">
+<h3>Rejected Documents</h3>
+<p>{{ rejected_count }}</p>
+</div>
+
+</div>
+
+
+<!-- Graph + Logs -->
+
+<div class="grid">
+
+<div class="panel">
+<h3>Processing Trend</h3>
+<canvas id="trendChart"></canvas>
+</div>
+
+<div class="panel">
+<h3>Live System Logs</h3>
+<div id="logs"></div>
+</div>
+
+</div>
 
 </div>
 
 <script>
-    // Trendy Spike Chart
-    new Chart(document.getElementById('trendChart'), {
-        type: 'line',
-        data: {
-            labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-            datasets: [{
-                label: 'Processing Volume',
-                data: [5, 8, 6, 12, 7, 9, 4],
-                borderColor: '#00f5a0',
-                backgroundColor: 'rgba(0,245,160,0.2)',
-                fill: true,
-                tension: 0.4,
-                pointRadius: 5,
-                pointBackgroundColor: '#00f5a0'
-            }]
-        },
-        options: {
-            plugins: {
-                legend: { labels: { color: 'white' } }
-            },
-            scales: {
-                x: { ticks: { color: 'white' } },
-                y: { ticks: { color: 'white' } }
-            }
-        }
-    });
 
-    // Live Logs Auto Refresh
-    function updateLogs() {
-        fetch("/api/logs")
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById("logs").innerHTML =
-                    data.logs.join("<br>");
-            });
-    }
+new Chart(document.getElementById('trendChart'), {
+type: 'line',
+data: {
+labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+datasets: [{
+label: 'Processing Volume',
+data: [5,8,6,12,7,9,4],
+borderColor: '#00f5a0',
+backgroundColor: 'rgba(0,245,160,0.2)',
+fill: true,
+tension: 0.4,
+pointRadius: 5,
+pointBackgroundColor: '#00f5a0'
+}]
+},
+options: {
+plugins: { legend: { labels: { color: 'white' } } },
+scales: {
+x: { ticks: { color: 'white' } },
+y: { ticks: { color: 'white' } }
+}
+}
+});
 
-    updateLogs();
-    setInterval(updateLogs, 3000);
+
+function updateLogs(){
+
+fetch("/api/logs")
+.then(res => res.json())
+.then(data => {
+
+document.getElementById("logs").innerHTML =
+data.logs.join("<br>");
+
+});
+
+}
+
+updateLogs();
+setInterval(updateLogs,3000);
+
 </script>
 
 </body>
