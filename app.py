@@ -1,21 +1,15 @@
-# ============================================================
-# SAP VIM Control Center
-# Email Processing with Date Filter + Preview + Download
-# ============================================================
-
-from flask import Flask, render_template, request, redirect, session, send_from_directory
+from flask import Flask, render_template, request, redirect, session, jsonify, send_from_directory
 from functools import wraps
-from werkzeug.utils import secure_filename
+from datetime import datetime
 import os
 import vim_email_processor
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "supersecret")
+app.secret_key = os.environ.get("SECRET_KEY", "vim_control_center")
 
-
-# ============================================================
-# CLOUD STORAGE PATHS
-# ============================================================
+# ==============================
+# STORAGE PATHS
+# ==============================
 
 BASE_FOLDER = os.path.join(os.getcwd(), "data")
 
@@ -28,26 +22,22 @@ LOG_FILE = os.path.join(LOG_FOLDER, "vim_log.log")
 for folder in [INCOMING_FOLDER, REJECTED_FOLDER, LOG_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
-
-# ============================================================
-# LOGIN REQUIRED DECORATOR
-# ============================================================
+# ==============================
+# AUTH DECORATOR
+# ==============================
 
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-
         if "email" not in session:
             return redirect("/")
-
         return f(*args, **kwargs)
-
     return wrapper
 
 
-# ============================================================
-# LOGIN PAGE
-# ============================================================
+# ==============================
+# LOGIN
+# ==============================
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -68,18 +58,18 @@ def login():
     return render_template("login.html")
 
 
-# ============================================================
+# ==============================
 # DASHBOARD
-# ============================================================
+# ==============================
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
 
-    message = session.pop("message", None)
-
     incoming_count = len(os.listdir(INCOMING_FOLDER))
     rejected_count = len(os.listdir(REJECTED_FOLDER))
+
+    message = session.pop("message", None)
 
     return render_template(
         "dashboard.html",
@@ -90,9 +80,9 @@ def dashboard():
     )
 
 
-# ============================================================
-# PROCESS EMAILS WITH DATE RANGE
-# ============================================================
+# ==============================
+# EMAIL PROCESSING
+# ==============================
 
 @app.route("/process", methods=["POST"])
 @login_required
@@ -115,9 +105,6 @@ def process_emails():
 
         session["message"] = result
 
-        # Remove password after processing (security)
-        session.pop("password", None)
-
     except Exception as e:
 
         session["message"] = str(e)
@@ -125,107 +112,112 @@ def process_emails():
     return redirect("/dashboard")
 
 
-# ============================================================
-# VIEW INCOMING DOCUMENTS
-# ============================================================
+# ==============================
+# VIEW FOLDERS
+# ==============================
 
 @app.route("/incoming")
 @login_required
-def view_incoming():
+def incoming():
 
     files = []
 
-    for file in os.listdir(INCOMING_FOLDER):
+    for f in os.listdir(INCOMING_FOLDER):
 
-        full_path = os.path.join(INCOMING_FOLDER, file)
+        full = os.path.join(INCOMING_FOLDER, f)
 
-        if os.path.isfile(full_path):
+        if os.path.isfile(full):
 
             files.append({
-                "name": file,
-                "size": round(os.path.getsize(full_path) / 1024, 2),
-                "timestamp": os.path.getmtime(full_path)
+                "name": f,
+                "size": round(os.path.getsize(full) / 1024, 2),
+                "timestamp": datetime.fromtimestamp(
+                    os.path.getmtime(full)
+                ).strftime("%Y-%m-%d %H:%M")
             })
 
     return render_template(
         "folder_view.html",
         title="Incoming Documents",
         files=files,
-        folder="incoming",
-        total_files=len(files)
+        folder="incoming"
     )
 
 
-# ============================================================
-# VIEW REJECTED DOCUMENTS
-# ============================================================
-
 @app.route("/rejected")
 @login_required
-def view_rejected():
+def rejected():
 
     files = []
 
-    for file in os.listdir(REJECTED_FOLDER):
+    for f in os.listdir(REJECTED_FOLDER):
 
-        full_path = os.path.join(REJECTED_FOLDER, file)
+        full = os.path.join(REJECTED_FOLDER, f)
 
-        if os.path.isfile(full_path):
+        if os.path.isfile(full):
 
             files.append({
-                "name": file,
-                "size": round(os.path.getsize(full_path) / 1024, 2),
-                "timestamp": os.path.getmtime(full_path)
+                "name": f,
+                "size": round(os.path.getsize(full) / 1024, 2),
+                "timestamp": datetime.fromtimestamp(
+                    os.path.getmtime(full)
+                ).strftime("%Y-%m-%d %H:%M")
             })
 
     return render_template(
         "folder_view.html",
         title="Rejected Documents",
         files=files,
-        folder="rejected",
-        total_files=len(files)
+        folder="rejected"
     )
 
 
-# ============================================================
-# PREVIEW FILE
-# ============================================================
+# ==============================
+# FILE PREVIEW
+# ==============================
 
 @app.route("/file/<folder>/<filename>")
 @login_required
-def preview_file(folder, filename):
+def preview(folder, filename):
 
-    filename = secure_filename(filename)
-
-    if folder == "incoming":
-        directory = INCOMING_FOLDER
-    else:
-        directory = REJECTED_FOLDER
+    directory = INCOMING_FOLDER if folder == "incoming" else REJECTED_FOLDER
 
     return send_from_directory(directory, filename)
 
 
-# ============================================================
-# DOWNLOAD FILE
-# ============================================================
+# ==============================
+# DOWNLOAD
+# ==============================
 
 @app.route("/download/<folder>/<filename>")
 @login_required
-def download_file(folder, filename):
+def download(folder, filename):
 
-    filename = secure_filename(filename)
-
-    if folder == "incoming":
-        directory = INCOMING_FOLDER
-    else:
-        directory = REJECTED_FOLDER
+    directory = INCOMING_FOLDER if folder == "incoming" else REJECTED_FOLDER
 
     return send_from_directory(directory, filename, as_attachment=True)
 
 
-# ============================================================
+# ==============================
+# LIVE LOG API
+# ==============================
+
+@app.route("/api/logs")
+@login_required
+def logs():
+
+    if not os.path.exists(LOG_FILE):
+        return jsonify({"logs": []})
+
+    with open(LOG_FILE) as f:
+        lines = f.readlines()[-40:]
+
+    return jsonify({"logs": lines})
+
+
+# ==============================
 # LOGOUT
-# ============================================================
+# ==============================
 
 @app.route("/logout")
 def logout():
@@ -234,10 +226,6 @@ def logout():
 
     return redirect("/")
 
-
-# ============================================================
-# RUN LOCAL SERVER
-# ============================================================
 
 if __name__ == "__main__":
     app.run()
