@@ -1,35 +1,81 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <title>{{ title }}</title>
 
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 
 body{
-font-family:Segoe UI;
-background:linear-gradient(135deg,#0f2b46,#071a2c);
+font-family:'Outfit',sans-serif;
+background:#04080f;
 color:white;
 padding:40px;
+margin:0;
 }
 
-.file{
-background:rgba(255,255,255,0.05);
+.header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:30px;
+}
+
+.back{
+background:#ef4444;
+border:none;
+padding:8px 16px;
+border-radius:8px;
+color:white;
+cursor:pointer;
+}
+
+.file-card{
+background:#0c1525;
+border:1px solid #1e3358;
 padding:20px;
 margin-bottom:15px;
-border-radius:10px;
+border-radius:12px;
+}
+
+.file-name{
+font-weight:600;
+font-size:15px;
+}
+
+.meta{
+font-size:13px;
+color:#94a3b8;
+margin-top:4px;
+}
+
+.actions{
+margin-top:10px;
 }
 
 button{
 padding:8px 14px;
 border:none;
-border-radius:6px;
+border-radius:8px;
 cursor:pointer;
-margin-right:10px;
+margin-right:8px;
 }
 
-.preview{background:#00c6ff;color:white;}
-.download{background:#00f5a0;color:black;}
+.preview{
+background:#0ea5e9;
+color:white;
+}
+
+.download{
+background:#10b981;
+color:white;
+}
+
+
+/* MODAL */
 
 .modal{
 display:none;
@@ -39,12 +85,32 @@ left:10%;
 width:80%;
 height:85%;
 background:#111;
-border-radius:10px;
+border-radius:12px;
+box-shadow:0 0 40px rgba(0,0,0,.6);
+overflow:hidden;
+z-index:999;
+}
+
+.modal-header{
+height:45px;
+background:#0c1525;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:0 15px;
+border-bottom:1px solid #1e3358;
+}
+
+.close-btn{
+cursor:pointer;
+font-size:20px;
+color:#ef4444;
+font-weight:bold;
 }
 
 .modal iframe{
 width:100%;
-height:100%;
+height:calc(100% - 45px);
 border:none;
 }
 
@@ -52,25 +118,34 @@ border:none;
 
 </head>
 
+
 <body>
+
+
+<div class="header">
 
 <h2>{{ title }}</h2>
 
-<a href="/dashboard">← Back</a>
+<a href="/dashboard">
+<button class="back">Back to Dashboard</button>
+</a>
 
-<br><br>
+</div>
+
+
+{% if files %}
 
 {% for file in files %}
 
-<div class="file">
+<div class="file-card">
 
-<b>{{ file.name }}</b>
+<div class="file-name">{{ file.name }}</div>
 
-<br>
+<div class="meta">
+Size: {{ file.size }} KB | {{ file.timestamp }}
+</div>
 
-Size: {{ file.size }} KB
-
-<br><br>
+<div class="actions">
 
 <button class="preview"
 onclick="preview('{{ folder }}','{{ file.name }}')">
@@ -78,16 +153,42 @@ Preview
 </button>
 
 <a href="/download/{{ folder }}/{{ file.name }}">
-<button class="download">Download</button>
+<button class="download">
+Download
+</button>
 </a>
+
+</div>
 
 </div>
 
 {% endfor %}
 
+{% else %}
+
+<p>No documents found.</p>
+
+{% endif %}
+
+
+
+<!-- PDF PREVIEW MODAL -->
+
 <div class="modal" id="modal">
-<iframe id="frame"></iframe>
+
+<div class="modal-header">
+
+<span>PDF Preview</span>
+
+<span class="close-btn" onclick="closePreview()">✕</span>
+
 </div>
+
+<iframe id="frame"></iframe>
+
+</div>
+
+
 
 <script>
 
@@ -99,13 +200,15 @@ document.getElementById("modal").style.display="block"
 
 }
 
-document.getElementById("modal").onclick=function(){
+function closePreview(){
 
-this.style.display="none"
+document.getElementById("modal").style.display="none"
+document.getElementById("frame").src=""
 
 }
 
 </script>
+
 
 </body>
 </html>
