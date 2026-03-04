@@ -1,6 +1,6 @@
 # ============================================================
 # SAP VIM Email Processor
-# Date Range + PDF Classification
+# Date Range + PDF Classification + PDF/A Conversion
 # ============================================================
 
 import imaplib
@@ -10,8 +10,8 @@ import pdfplumber
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from email.utils import parsedate_to_datetime
 import re
+import subprocess
 
 
 IMAP_SERVER = "imap.one.com"
@@ -54,6 +54,32 @@ def email_to_pdf(text, output_path):
 
 
 # ============================================================
+# PDF → PDF/A CONVERSION
+# ============================================================
+
+def convert_to_pdfa(input_pdf, output_pdf):
+
+    try:
+
+        subprocess.run([
+            "gswin64c",              # Ghostscript command
+            "-dPDFA=2",
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-dNOSAFER",
+            "-sDEVICE=pdfwrite",
+            "-sPDFACompatibilityPolicy=1",
+            f"-sOutputFile={output_pdf}",
+            input_pdf
+        ], check=True)
+
+        os.remove(input_pdf)
+
+    except Exception as e:
+        print("PDF/A conversion failed:", e)
+
+
+# ============================================================
 # MAIN PROCESSOR
 # ============================================================
 
@@ -84,10 +110,10 @@ def run_processor(
 
 
     # ========================================
-    # IMAP DATE FILTER
+    # ONLY UNREAD EMAILS IN DATE RANGE
     # ========================================
 
-    status,data = mail.search(None, f'(SINCE "{start_imap}" BEFORE "{end_imap}")')
+    status,data = mail.search(None, f'(UNSEEN SINCE "{start_imap}" BEFORE "{end_imap}")')
 
     email_ids = data[0].split()
 
@@ -155,7 +181,7 @@ def run_processor(
                         final_path = os.path.join(rejected_folder,filename)
 
 
-                    os.rename(temp_path,final_path)
+                    convert_to_pdfa(temp_path, final_path)
 
 
 
@@ -209,7 +235,14 @@ Body:
                 final_path=os.path.join(rejected_folder,filename)
 
 
-            os.rename(temp_path,final_path)
+            convert_to_pdfa(temp_path, final_path)
+
+
+        # ====================================
+        # MARK EMAIL AS READ
+        # ====================================
+
+        mail.store(eid, '+FLAGS', '\\Seen')
 
 
         processed+=1
