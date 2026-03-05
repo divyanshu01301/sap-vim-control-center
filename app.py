@@ -44,7 +44,7 @@ def login_required(f):
 
 
 # =========================================================
-# LOGIN PAGE
+# LOGIN
 # =========================================================
 
 @app.route("/", methods=["GET","POST"])
@@ -100,7 +100,7 @@ def process():
 
     start_date = request.form.get("start_date")
     end_date = request.form.get("end_date")
-    mail_type = request.form.get("mail_type")   # NEW
+    mail_type = request.form.get("mail_type")
 
     incoming_folder, rejected_folder = get_user_folders()
 
@@ -113,7 +113,7 @@ def process():
             rejected_folder,
             start_date,
             end_date,
-            mail_type   # NEW
+            mail_type
         )
 
         session["message"] = result
@@ -136,7 +136,7 @@ def process():
 @login_required
 def incoming():
 
-    incoming_folder, rejected_folder = get_user_folders()
+    incoming_folder, _ = get_user_folders()
 
     files = []
 
@@ -170,7 +170,7 @@ def incoming():
 @login_required
 def rejected():
 
-    incoming_folder, rejected_folder = get_user_folders()
+    _, rejected_folder = get_user_folders()
 
     files = []
 
@@ -208,10 +208,8 @@ def preview(folder, filename):
 
     if folder == "incoming":
         directory = incoming_folder
-    elif folder == "rejected":
-        directory = rejected_folder
     else:
-        return "Invalid folder", 400
+        directory = rejected_folder
 
     return send_from_directory(directory, filename)
 
@@ -228,10 +226,8 @@ def download(folder, filename):
 
     if folder == "incoming":
         directory = incoming_folder
-    elif folder == "rejected":
-        directory = rejected_folder
     else:
-        return "Invalid folder", 400
+        directory = rejected_folder
 
     return send_from_directory(directory, filename, as_attachment=True)
 
@@ -244,7 +240,6 @@ def download(folder, filename):
 def logout():
 
     session.clear()
-
     return redirect("/")
 
 
@@ -255,7 +250,4 @@ def logout():
 if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 10000))
-
     app.run(host="0.0.0.0", port=port)
-
-

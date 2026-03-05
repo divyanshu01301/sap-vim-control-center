@@ -12,10 +12,6 @@ IMAP_SERVER = "imap.one.com"
 IMAP_PORT = 993
 
 
-# =========================================================
-# CLEAN FILE NAME
-# =========================================================
-
 def clean_filename(name):
 
     name = re.sub(r'[^\w\-_\. ]', '_', name)
@@ -23,10 +19,6 @@ def clean_filename(name):
 
     return name
 
-
-# =========================================================
-# EMAIL TEXT → PDF
-# =========================================================
 
 def email_to_pdf(text, output_path):
 
@@ -37,7 +29,6 @@ def email_to_pdf(text, output_path):
     for line in text.split("\n"):
 
         c.drawString(40, y, line)
-
         y -= 15
 
         if y < 50:
@@ -46,10 +37,6 @@ def email_to_pdf(text, output_path):
 
     c.save()
 
-
-# =========================================================
-# CONVERT TO PDF/A
-# =========================================================
 
 def convert_to_pdfa(input_pdf, output_pdf):
 
@@ -72,18 +59,26 @@ def convert_to_pdfa(input_pdf, output_pdf):
         print("PDF/A conversion failed:", e)
 
 
-# =========================================================
-# MAIN PROCESSOR
-# =========================================================
+def is_invoice(text):
 
-def run_processor(
-        email_user,
-        email_pass,
-        incoming_folder,
-        rejected_folder,
-        start_date,
-        end_date,
-        mail_type):
+    text = text.lower()
+
+    keywords = [
+        "invoice",
+        "inv ",
+        "invoice no",
+        "invoice number",
+        "invoice #",
+        "inv no",
+        "inv #"
+    ]
+
+    return any(k in text for k in keywords)
+
+
+def run_processor(email_user, email_pass,
+                  incoming_folder, rejected_folder,
+                  start_date, end_date, mail_type):
 
     processed = 0
 
@@ -97,30 +92,20 @@ def run_processor(
     mail.login(email_user,email_pass)
     mail.select("INBOX")
 
-    # =========================================================
-    # MAIL FILTER
-    # =========================================================
 
     if mail_type == "unread":
-
         search_query = f'(UNSEEN SINCE "{start_imap}" BEFORE "{end_imap}")'
 
     elif mail_type == "read":
-
         search_query = f'(SEEN SINCE "{start_imap}" BEFORE "{end_imap}")'
 
     else:
-
         search_query = f'(SINCE "{start_imap}" BEFORE "{end_imap}")'
 
 
     status,data = mail.search(None, search_query)
 
     email_ids = data[0].split()
-
-    # =========================================================
-    # PROCESS EMAILS
-    # =========================================================
 
     for eid in email_ids:
 
@@ -132,13 +117,8 @@ def run_processor(
 
         subject = msg.get("Subject","")
         sender = msg.get("From","")
-        email_date = msg.get("Date","")
 
         pdf_found = False
-
-        # =========================================================
-        # PDF ATTACHMENT
-        # =========================================================
 
         if msg.is_multipart():
 
@@ -173,7 +153,7 @@ def run_processor(
                     except:
                         text = ""
 
-                    if "invoice" in text.lower() or "inv" in text.lower():
+                    if is_invoice(text):
 
                         final_path = os.path.join(incoming_folder,filename)
 
@@ -183,9 +163,6 @@ def run_processor(
 
                     convert_to_pdfa(temp_path, final_path)
 
-        # =========================================================
-        # NO PDF → GENERATE PDF
-        # =========================================================
 
         if not pdf_found:
 
@@ -206,8 +183,6 @@ def run_processor(
             content=f"""
 From: {sender}
 
-Date: {email_date}
-
 Subject: {subject}
 
 Body:
@@ -223,7 +198,7 @@ Body:
 
             email_to_pdf(content,temp_path)
 
-            if "invoice" in content.lower() or "inv" in content.lower():
+            if is_invoice(content):
 
                 final_path=os.path.join(incoming_folder,filename)
 
@@ -240,5 +215,3 @@ Body:
     mail.logout()
 
     return f"{processed} emails processed successfully."
-
-
