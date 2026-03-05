@@ -215,3 +215,4 @@ Body:
     mail.logout()
 
     return f"{processed} emails processed successfully."
+
