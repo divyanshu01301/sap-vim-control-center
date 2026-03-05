@@ -132,7 +132,7 @@ def run_processor(
 
         subject = msg.get("Subject","")
         sender = msg.get("From","")
-	email_date = msg.get("Date","")
+        email_date = msg.get("Date","")
 
         pdf_found = False
 
