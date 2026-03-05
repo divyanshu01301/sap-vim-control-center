@@ -12,6 +12,10 @@ IMAP_SERVER = "imap.one.com"
 IMAP_PORT = 993
 
 
+# ==============================
+# CLEAN FILENAME
+# ==============================
+
 def clean_filename(name):
 
     name = re.sub(r'[^\w\-_\. ]', '_', name)
@@ -19,6 +23,10 @@ def clean_filename(name):
 
     return name
 
+
+# ==============================
+# EMAIL → PDF
+# ==============================
 
 def email_to_pdf(text, output_path):
 
@@ -29,6 +37,7 @@ def email_to_pdf(text, output_path):
     for line in text.split("\n"):
 
         c.drawString(40, y, line)
+
         y -= 15
 
         if y < 50:
@@ -37,6 +46,10 @@ def email_to_pdf(text, output_path):
 
     c.save()
 
+
+# ==============================
+# PDF → PDF/A (SAFE VERSION)
+# ==============================
 
 def convert_to_pdfa(input_pdf, output_pdf):
 
@@ -56,8 +69,16 @@ def convert_to_pdfa(input_pdf, output_pdf):
         os.remove(input_pdf)
 
     except Exception as e:
-        print("PDF/A conversion failed:", e)
 
+        print("PDF/A conversion failed. Saving original PDF instead:", e)
+
+        # fallback if ghostscript fails
+        os.rename(input_pdf, output_pdf)
+
+
+# ==============================
+# INVOICE DETECTION
+# ==============================
 
 def is_invoice(text):
 
@@ -76,9 +97,18 @@ def is_invoice(text):
     return any(k in text for k in keywords)
 
 
-def run_processor(email_user, email_pass,
-                  incoming_folder, rejected_folder,
-                  start_date, end_date, mail_type):
+# ==============================
+# MAIN PROCESSOR
+# ==============================
+
+def run_processor(
+        email_user,
+        email_pass,
+        incoming_folder,
+        rejected_folder,
+        start_date,
+        end_date,
+        mail_type):
 
     processed = 0
 
@@ -93,19 +123,31 @@ def run_processor(email_user, email_pass,
     mail.select("INBOX")
 
 
+    # ==============================
+    # MAIL FILTER
+    # ==============================
+
     if mail_type == "unread":
+
         search_query = f'(UNSEEN SINCE "{start_imap}" BEFORE "{end_imap}")'
 
     elif mail_type == "read":
+
         search_query = f'(SEEN SINCE "{start_imap}" BEFORE "{end_imap}")'
 
     else:
+
         search_query = f'(SINCE "{start_imap}" BEFORE "{end_imap}")'
 
 
     status,data = mail.search(None, search_query)
 
     email_ids = data[0].split()
+
+
+    # ==============================
+    # PROCESS EMAILS
+    # ==============================
 
     for eid in email_ids:
 
@@ -119,6 +161,11 @@ def run_processor(email_user, email_pass,
         sender = msg.get("From","")
 
         pdf_found = False
+
+
+        # ==============================
+        # CHECK ATTACHMENTS
+        # ==============================
 
         if msg.is_multipart():
 
@@ -153,6 +200,11 @@ def run_processor(email_user, email_pass,
                     except:
                         text = ""
 
+
+                    # ==============================
+                    # CLASSIFICATION
+                    # ==============================
+
                     if is_invoice(text):
 
                         final_path = os.path.join(incoming_folder,filename)
@@ -161,8 +213,13 @@ def run_processor(email_user, email_pass,
 
                         final_path = os.path.join(rejected_folder,filename)
 
+
                     convert_to_pdfa(temp_path, final_path)
 
+
+        # ==============================
+        # IF NO PDF ATTACHMENT
+        # ==============================
 
         if not pdf_found:
 
@@ -180,6 +237,7 @@ def run_processor(email_user, email_pass,
 
                 body = msg.get_payload(decode=True).decode(errors="ignore")
 
+
             content=f"""
 From: {sender}
 
@@ -190,6 +248,7 @@ Body:
 {body}
 """
 
+
             filename=f"email_{processed}.pdf"
 
             filename=clean_filename(filename)
@@ -197,6 +256,7 @@ Body:
             temp_path=os.path.join(incoming_folder,"temp_"+filename)
 
             email_to_pdf(content,temp_path)
+
 
             if is_invoice(content):
 
@@ -206,13 +266,15 @@ Body:
 
                 final_path=os.path.join(rejected_folder,filename)
 
+
             convert_to_pdfa(temp_path, final_path)
+
 
         mail.store(eid, '+FLAGS', '\\Seen')
 
         processed+=1
 
+
     mail.logout()
 
     return f"{processed} emails processed successfully."
-
