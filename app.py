@@ -31,7 +31,7 @@ def get_user_folders():
 
 
 # =========================================================
-# LOGIN REQUIRED DECORATOR
+# LOGIN REQUIRED
 # =========================================================
 
 def login_required(f):
@@ -100,6 +100,7 @@ def process():
 
     start_date = request.form.get("start_date")
     end_date = request.form.get("end_date")
+    mail_type = request.form.get("mail_type")   # NEW
 
     incoming_folder, rejected_folder = get_user_folders()
 
@@ -111,7 +112,8 @@ def process():
             incoming_folder,
             rejected_folder,
             start_date,
-            end_date
+            end_date,
+            mail_type   # NEW
         )
 
         session["message"] = result

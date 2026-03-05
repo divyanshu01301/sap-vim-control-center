@@ -66,6 +66,16 @@ border:none;
 margin-right:10px;
 }
 
+.mail-filter{
+margin-top:15px;
+margin-bottom:10px;
+}
+
+.mail-filter label{
+margin-right:20px;
+cursor:pointer;
+}
+
 </style>
 
 </head>
@@ -86,16 +96,43 @@ margin-right:10px;
 <p style="color:#00f5a0">{{ message }}</p>
 {% endif %}
 
+<!-- ===========================
+PROCESS FORM
+=========================== -->
+
 <form action="/process" method="POST">
 
 <input type="text" id="start_date" name="start_date" class="date" placeholder="Start date" required>
 
 <input type="text" id="end_date" name="end_date" class="date" placeholder="End date" required>
 
+<div class="mail-filter">
+
+<label>
+<input type="radio" name="mail_type" value="unread" checked>
+Unread
+</label>
+
+<label>
+<input type="radio" name="mail_type" value="read">
+Read
+</label>
+
+<label>
+<input type="radio" name="mail_type" value="all">
+All
+</label>
+
+</div>
+
 <button class="primary">Start Processing</button>
 
 </form>
 
+
+<!-- ===========================
+CARDS
+=========================== -->
 
 <div class="cards">
 
@@ -126,6 +163,10 @@ margin-right:10px;
 </div>
 
 
+<!-- ===========================
+CHART
+=========================== -->
+
 <div class="panel">
 
 <h3>Processing Trend</h3>
@@ -140,6 +181,7 @@ margin-right:10px;
 flatpickr("#start_date",{dateFormat:"Y-m-d"});
 flatpickr("#end_date",{dateFormat:"Y-m-d"});
 
+
 new Chart(document.getElementById("chart"),{
 
 type:"line",
@@ -149,7 +191,8 @@ labels:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
 datasets:[{
 data:[4,7,3,9,6,8,2],
 borderColor:"#00f5a0",
-fill:false
+fill:false,
+tension:0.3
 }]
 }
 
