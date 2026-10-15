@@ -5,3 +5,5 @@ reportlab
 pikepdf
 pillow
 pypdf
+pytesseract
+pdf2image
