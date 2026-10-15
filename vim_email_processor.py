@@ -3,6 +3,7 @@ from email.header import decode_header, make_header
 from datetime import datetime, timedelta
 
 import pdfplumber
+from pypdf import PdfWriter
 from PIL import Image, ImageOps
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
@@ -17,7 +18,7 @@ OFFICE_EXT = {".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".odt", ".ods", ".rtf"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png"}
 SUPPORTED = {".pdf"} | OFFICE_EXT | IMAGE_EXT
 
-# Unicode font (optional): apt install fonts-dejavu-core
+# Unicode font (optional): installed via fonts-dejavu-core
 FONT = "Helvetica"
 _dejavu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 if os.path.exists(_dejavu):
@@ -41,8 +42,19 @@ def decode_str(value):
         return str(value)
 
 
+INVOICE_PATTERN = re.compile(
+    r"\b("
+    r"invoices?|inv|tax\s*invoice|proforma|pro-forma|"
+    r"credit\s*note|debit\s*note|payment\s*advice|remittance|"
+    r"bill\s*(no|number|#)|billing\s*statement|"
+    r"amount\s*due|total\s*due|payment\s*due|due\s*date"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
 def is_invoice(text):
-    return bool(re.search(r"\b(invoice|inv)\s*(no|number|#|num)?\b", text.lower()))
+    return bool(INVOICE_PATTERN.search(text))
 
 
 def extract_body(msg):
@@ -151,7 +163,7 @@ def process_message(msg, uid, incoming, rejected):
     body = extract_body(msg)
 
     with tempfile.TemporaryDirectory() as tmp:
-        outputs = []      # (final_name, pdf_path)
+        outputs = []      # list of (label, pdf_path)
         all_text = subject + "\n" + body
 
         # attachments
@@ -187,23 +199,41 @@ def process_message(msg, uid, incoming, rejected):
             except Exception as e:
                 print(f"Skipping attachment {filename}: {e}")
                 continue
-            stem = os.path.splitext(safe)[0]
-            outputs.append((f"{uid}_{n}_{stem}.pdf", pdf))
+            outputs.append((safe, pdf))
             all_text += "\n" + pdf_text(pdf)
 
-        # body PDF: only if there is a body (case 1 and 2); skipped for attachment-only mails
+        # skip emails that are not invoice related
+        if not is_invoice(all_text):
+            return 0
+
+        # body PDF (skipped if the mail has no body text)
         if body.strip():
             body_pdf = os.path.join(tmp, "body.pdf")
             body_to_pdf(sender, subject, date, body, body_pdf)
-            outputs.insert(0, (f"{uid}_body.pdf", body_pdf))
+            outputs.insert(0, ("body", body_pdf))
 
         if not outputs:
             return 0
 
-        target = incoming if is_invoice(all_text) else rejected
-        for name, pdf in outputs:
-            convert_to_pdfa(pdf, os.path.join(target, name))
-        return len(outputs)
+        # merge: body first, then attachments, into ONE pdf
+        writer = PdfWriter()
+        added = 0
+        for _, pdf in outputs:
+            try:
+                writer.append(pdf)
+                added += 1
+            except Exception as e:
+                print(f"Could not merge {pdf}: {e}")
+        if not added:
+            return 0
+
+        merged = os.path.join(tmp, "merged.pdf")
+        with open(merged, "wb") as f:
+            writer.write(f)
+
+        name = f"{uid}_{clean_filename(subject)[:50] or 'email'}.pdf"
+        convert_to_pdfa(merged, os.path.join(incoming, name))
+        return 1
 
 
 # ---------- main ----------
@@ -217,7 +247,7 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder,
     flag = {"unread": "UNSEEN ", "read": "SEEN "}.get(mail_type, "")
     query = f'({flag}SINCE "{s}" BEFORE "{e}")'
 
-    emails_done, files_made, failed = 0, 0, 0
+    emails_done, files_made, failed, skipped = 0, 0, 0, 0
     mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
     try:
         mail.login(email_user, email_pass)
@@ -228,9 +258,13 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder,
             try:
                 _, msg_data = mail.uid("fetch", uid, "(BODY.PEEK[])")
                 msg = email.message_from_bytes(msg_data[0][1])
-                files_made += process_message(msg, uid.decode(), incoming_folder, rejected_folder)
-                mail.uid("store", uid, "+FLAGS", "\\Seen")
-                emails_done += 1
+                saved = process_message(msg, uid.decode(), incoming_folder, rejected_folder)
+                if saved:
+                    files_made += saved
+                    mail.uid("store", uid, "+FLAGS", "\\Seen")
+                    emails_done += 1
+                else:
+                    skipped += 1
             except Exception as ex:
                 failed += 1
                 print(f"Email {uid} failed: {ex}")
@@ -240,4 +274,4 @@ def run_processor(email_user, email_pass, incoming_folder, rejected_folder,
         except Exception:
             pass
 
-    return f"{emails_done} emails processed, {files_made} PDF/A files created, {failed} failed."
+    return f"{emails_done} invoice emails saved, {skipped} skipped (not invoice), {failed} failed."
